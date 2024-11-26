@@ -18,7 +18,4 @@ include("patching.jl")
 include("contract.jl")
 include("adaptivemul.jl")
 
-# Only for backward compatibility
-include("automul.jl")
-
 end
