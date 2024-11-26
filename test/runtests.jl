@@ -7,7 +7,7 @@ using Test
 include("_util.jl")
 
 include("projector_tests.jl")
-include("sUBdOMAINmps_tests.jl")
+include("subdomainmps_tests.jl")
 include("partitionedmps_tests.jl")
 include("contract_tests.jl")
 include("patching_tests.jl")
