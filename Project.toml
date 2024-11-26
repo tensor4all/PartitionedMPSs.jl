@@ -1,5 +1,5 @@
-name = "ProjMPSs"
-uuid = "3cac4759-b6c4-45be-a543-65afe6a1360a"
+name = "PartitionedMPSs"
+uuid = "17ce1de9-5131-45e3-8a48-9723b6e2dc23"
 authors = ["Hiroshi Shinaoka <h.shinaoka@gmail.com> and contributors"]
 version = "0.4.1"
 

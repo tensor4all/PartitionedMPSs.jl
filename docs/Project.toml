@@ -1,3 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-ProjMPSs = "3cac4759-b6c4-45be-a543-65afe6a1360a"
+PartitionedMPSs = "3cac4759-b6c4-45be-a543-65afe6a1360a"

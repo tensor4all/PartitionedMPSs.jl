@@ -1,18 +1,18 @@
 """
-Add multiple ProjMPS objects on the same projector.
+Add multiple SubDomainMPS objects on the same projector.
 
 If the bond dimension of the result reaches `maxdim`,
 perform patching recursively to reduce the bond dimension.
 """
 function _add_patching(
-    prjmpss::AbstractVector{ProjMPS};
+    prjmpss::AbstractVector{SubDomainMPS};
     cutoff=0.0,
     maxdim=typemax(Int),
     alg="fit",
     patchorder=Index[],
-)::Vector{ProjMPS}
+)::Vector{SubDomainMPS}
     if length(unique([prjmps.projector for prjmps in prjmpss])) != 1
-        error("All ProjMPS objects must have the same projector.")
+        error("All SubDomainMPS objects must have the same projector.")
     end
 
     # First perform addition upto given maxdim
@@ -26,9 +26,9 @@ function _add_patching(
 
     nextprjidx = _next_projindex(prjmpss[1].projector, patchorder)
 
-    nextprjidx === nothing && return BlockedMPS(sum_approx)
+    nextprjidx === nothing && return PartitionedMPS(sum_approx)
 
-    blocks = ProjMPS[]
+    blocks = SubDomainMPS[]
     for prjval in 1:ITensors.dim(nextprjidx)
         prj_ = prjmpss[1].projector & Projector(nextprjidx => prjval)
         blocks =
@@ -57,34 +57,34 @@ function _next_projindex(prj::Projector, patchorder)::Union{Nothing,Index}
 end
 
 """
-Add multiple BlockedMPS objects.
+Add multiple PartitionedMPS objects.
 """
 function add_patching(
-    bmpss::AbstractVector{BlockedMPS};
+    bmpss::AbstractVector{PartitionedMPS};
     cutoff=0.0,
     maxdim=typemax(Int),
     alg="fit",
     patchorder=Index[],
-)::BlockedMPS
+)::PartitionedMPS
     result = _add_patching(union(values(x) for x in bmpss); cutoff, maxdim, alg, patchorder)
-    return BlockedMPS(result)
+    return PartitionedMPS(result)
 end
 
 """
 Adaptive patching
 
 Do patching recursively to reduce the bond dimension.
-If the bond dimension of a ProjMPS exceeds `maxdim`, perform patching.
+If the bond dimension of a SubDomainMPS exceeds `maxdim`, perform patching.
 """
 function adaptive_patching(
-    prjmps::ProjMPS, patchorder; cutoff=0.0, maxdim=typemax(Int)
-)::Vector{ProjMPS}
+    prjmps::SubDomainMPS, patchorder; cutoff=0.0, maxdim=typemax(Int)
+)::Vector{SubDomainMPS}
     if maxbonddim(prjmps) <= maxdim
         return [prjmps]
     end
 
     # If the bond dimension exceeds maxdim, perform patching
-    refined_prjmpss = ProjMPS[]
+    refined_prjmpss = SubDomainMPS[]
     nextprjidx = _next_projindex(prjmps.projector, patchorder)
     if nextprjidx === nothing
         return [prjmps]
@@ -106,12 +106,12 @@ end
 Adaptive patching
 
 Do patching recursively to reduce the bond dimension.
-If the bond dimension of a ProjMPS exceeds `maxdim`, perform patching.
+If the bond dimension of a SubDomainMPS exceeds `maxdim`, perform patching.
 """
 function adaptive_patching(
-    prjmpss::BlockedMPS, patchorder; cutoff=0.0, maxdim=typemax(Int)
-)::BlockedMPS
-    return BlockedMPS(
+    prjmpss::PartitionedMPS, patchorder; cutoff=0.0, maxdim=typemax(Int)
+)::PartitionedMPS
+    return PartitionedMPS(
         collect(
             Iterators.flatten((
                 apdaptive_patching(prjmps; cutoff, maxdim, patchorder) for

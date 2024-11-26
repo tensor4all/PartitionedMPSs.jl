@@ -117,7 +117,6 @@ function _extract_diagonal(t, site::Index{T}, site2::Index{T}) where {T<:Number}
     return ITensor(newdata, restinds..., site)
 end
 
-
 """
 Makes an MPS/MPO diagonal for a specified a site index `s`.
 On return, the data will be deep copied and the target core tensor will be diagonalized with an additional site index `s'`.

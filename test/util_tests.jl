@@ -1,7 +1,16 @@
 using Test
 
 using ITensors
-import ProjMPSs: ProjMPSs, Projector, project, ProjMPS, projcontract, BlockedMPS, rearrange_siteinds, makesitediagonal, extractdiagonal
+import PartitionedMPSs:
+    PartitionedMPSs,
+    Projector,
+    project,
+    SubDomainMPS,
+    projcontract,
+    PartitionedMPS,
+    rearrange_siteinds,
+    makesitediagonal,
+    extractdiagonal
 import FastMPOContractions as FMPOC
 
 @testset "util.jl" begin
@@ -14,7 +23,7 @@ import FastMPOContractions as FMPOC
 
         Ψ = MPS(collect(_random_mpo(sites)))
 
-        prjΨ = ProjMPS(Ψ)
+        prjΨ = SubDomainMPS(Ψ)
         prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
 
         sitesxy = collect(collect.(zip(sitesx, sitesy)))
@@ -26,7 +35,7 @@ import FastMPOContractions as FMPOC
         prjΨ1_rearranged = rearrange_siteinds(prjΨ1, sites_rearranged)
 
         @test reduce(*, MPS(prjΨ1)) ≈ reduce(*, MPS(prjΨ1_rearranged))
-        @test ProjMPSs.siteinds(prjΨ1_rearranged) == sites_rearranged
+        @test PartitionedMPSs.siteinds(prjΨ1_rearranged) == sites_rearranged
     end
 
     @testset "makesitediagonal and extractdiagonal" begin
@@ -41,7 +50,7 @@ import FastMPOContractions as FMPOC
 
         Ψ = MPS(collect(_random_mpo(sites)))
 
-        prjΨ = ProjMPS(Ψ)
+        prjΨ = SubDomainMPS(Ψ)
         prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
 
         prjΨ1_diagonalz = makesitediagonal(prjΨ1, "y")
@@ -67,8 +76,7 @@ import FastMPOContractions as FMPOC
             end
             repeated_indices = [is for is in values(index_dict) if length(is) > 1]
 
-            isdiagonalelement = all(allequal(val[i] for i in is)
-            for is in repeated_indices)
+            isdiagonalelement = all(allequal(val[i] for i in is) for is in repeated_indices)
 
             if isdiagonalelement
                 nondiaginds = unique(noprime(i) => v for (i, v) in indval)

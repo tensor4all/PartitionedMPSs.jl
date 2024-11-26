@@ -4,8 +4,8 @@ By default, elementwise multiplication will be performed.
 This function is kind of deprecated and will be removed in the future.
 """
 function automul(
-    M1::BlockedMPS,
-    M2::BlockedMPS;
+    M1::PartitionedMPS,
+    M2::PartitionedMPS;
     tag_row::String="",
     tag_shared::String="",
     tag_col::String="",
@@ -89,7 +89,7 @@ function combinesites(
     return sites
 end
 
-function _findallsiteinds_by_tag(M::BlockedMPS; tag=tag)
+function _findallsiteinds_by_tag(M::PartitionedMPS; tag=tag)
     return findallsiteinds_by_tag(only.(siteinds(M)); tag=tag)
 end
 

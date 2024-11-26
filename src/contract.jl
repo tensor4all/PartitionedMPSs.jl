@@ -3,7 +3,9 @@ _alg_map = Dict(
     ITensors.Algorithm(alg) => alg for alg in ["directsum", "densitymatrix", "fit", "naive"]
 )
 
-function contract(M1::ProjMPS, M2::ProjMPS; alg, kwargs...)::Union{ProjMPS,Nothing}
+function contract(
+    M1::SubDomainMPS, M2::SubDomainMPS; alg, kwargs...
+)::Union{SubDomainMPS,Nothing}
     if !hasoverlap(M1.projector, M2.projector)
         return nothing
     end
@@ -13,11 +15,11 @@ function contract(M1::ProjMPS, M2::ProjMPS; alg, kwargs...)::Union{ProjMPS,Nothi
     Ψ = FMPOC.contract_mpo_mpo(
         MPO(collect(M1.data)), MPO(collect(M2.data)); alg=alg_str, kwargs...
     )
-    return project(ProjMPS(Ψ), proj)
+    return project(SubDomainMPS(Ψ), proj)
 end
 
-# Figure out `projector` after contracting ProjMPS objects
-function _projector_after_contract(M1::ProjMPS, M2::ProjMPS)
+# Figure out `projector` after contracting SubDomainMPS objects
+function _projector_after_contract(M1::SubDomainMPS, M2::SubDomainMPS)
     sites1 = _allsites(M1)
     sites2 = _allsites(M2)
 
@@ -48,18 +50,18 @@ function _is_externalsites_compatible_with_projector(external_sites, projector)
 end
 
 """
-Project two ProjMPS objects to `proj` before contracting them.
+Project two SubDomainMPS objects to `proj` before contracting them.
 """
 function projcontract(
-    M1::ProjMPS,
-    M2::ProjMPS,
+    M1::SubDomainMPS,
+    M2::SubDomainMPS,
     proj::Projector;
     alg="fit",
     cutoff=1e-25,
     maxdim=typemax(Int),
     verbosity=0,
     kwargs...,
-)::Union{Nothing,ProjMPS}
+)::Union{Nothing,SubDomainMPS}
     # Project M1 and M2 to `proj` before contracting
     M1 = project(M1, proj)
     M2 = project(M2, proj)
@@ -81,12 +83,12 @@ function projcontract(
 end
 
 """
-Project two ProjMPS objects to `proj` before contracting them.
+Project two SubDomainMPS objects to `proj` before contracting them.
 The results are summed.
 """
 function projcontract(
-    M1::AbstractVector{ProjMPS},
-    M2::AbstractVector{ProjMPS},
+    M1::AbstractVector{SubDomainMPS},
+    M2::AbstractVector{SubDomainMPS},
     proj::Projector;
     alg="fit",
     alg_sum="fit",
@@ -94,8 +96,8 @@ function projcontract(
     maxdim=typemax(Int),
     patchorder=Index[],
     kwargs...,
-)::Union{Nothing,Vector{ProjMPS}}
-    results = ProjMPS[]
+)::Union{Nothing,Vector{SubDomainMPS}}
+    results = SubDomainMPS[]
     #T1 = time_ns()
     for M1_ in M1
         for M2_ in M2
@@ -135,14 +137,14 @@ Contract two Blocked MPS objects.
 At each site, the objects must share at least one site index.
 """
 function contract(
-    M1::BlockedMPS,
-    M2::BlockedMPS;
+    M1::PartitionedMPS,
+    M2::PartitionedMPS;
     alg="fit",
     cutoff=1e-25,
     maxdim=typemax(Int),
     patchorder=Index[],
     kwargs...,
-)::Union{BlockedMPS}
+)::Union{PartitionedMPS}
     #T1 = time_ns()
     blocks = OrderedSet((
         _projector_after_contract(b1, b2)[1] for b1 in values(M1), b2 in values(M2)
@@ -152,12 +154,12 @@ function contract(
             error("After contraction, projectors must not overlap.")
         end
     end
-    prjmpss = ProjMPS[]
-    M1_::Vector{ProjMPS} = collect(values(M1))
-    M2_::Vector{ProjMPS} = collect(values(M2))
+    prjmpss = SubDomainMPS[]
+    M1_::Vector{SubDomainMPS} = collect(values(M1))
+    M2_::Vector{SubDomainMPS} = collect(values(M2))
     for b in blocks
         #t1 = time_ns()
-        res::Vector{ProjMPS} = projcontract(
+        res::Vector{SubDomainMPS} = projcontract(
             M1_, M2_, b; alg, cutoff, maxdim, patchorder, kwargs...
         )
         #t2 = time_ns()
@@ -168,5 +170,5 @@ function contract(
     end
     #T2 = time_ns()
     #println("projcontract, all: $((T2 - T1)*1e-9) s")
-    return BlockedMPS(prjmpss)
+    return PartitionedMPS(prjmpss)
 end

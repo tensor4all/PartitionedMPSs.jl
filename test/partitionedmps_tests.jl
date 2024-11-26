@@ -2,9 +2,9 @@ using Test
 
 using ITensors
 
-import ProjMPSs: Projector, project, ProjMPS, BlockedMPS
+import PartitionedMPSs: Projector, project, SubDomainMPS, PartitionedMPS
 
-@testset "blockedmps.jl" begin
+@testset "PartitionedMPS.jl" begin
     @testset "two blocks" begin
         N = 3
         sitesx = [Index(2, "x=$n") for n in 1:N]
@@ -14,15 +14,15 @@ import ProjMPSs: Projector, project, ProjMPS, BlockedMPS
 
         Ψ = MPS(collect(_random_mpo(sites)))
 
-        prjΨ = ProjMPS(Ψ)
+        prjΨ = SubDomainMPS(Ψ)
 
         prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
         prjΨ2 = project(prjΨ, Dict(sitesx[1] => 2))
 
-        @test_throws ErrorException BlockedMPS([prjΨ, prjΨ1])
-        @test_throws ErrorException BlockedMPS([prjΨ1, prjΨ1])
+        @test_throws ErrorException PartitionedMPS([prjΨ, prjΨ1])
+        @test_throws ErrorException PartitionedMPS([prjΨ1, prjΨ1])
 
-        Ψreconst = BlockedMPS(prjΨ1) + BlockedMPS(prjΨ2)
+        Ψreconst = PartitionedMPS(prjΨ1) + PartitionedMPS(prjΨ2)
         @test Ψreconst[1] == prjΨ1
         @test Ψreconst[2] == prjΨ2
         @test MPS(Ψreconst) ≈ Ψ
@@ -38,13 +38,13 @@ import ProjMPSs: Projector, project, ProjMPS, BlockedMPS
 
         Ψ = MPS(collect(_random_mpo(sites)))
 
-        prjΨ = ProjMPS(Ψ)
+        prjΨ = SubDomainMPS(Ψ)
 
         prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
         prjΨ2 = project(prjΨ, Dict(sitesx[1] => 2))
 
-        a = BlockedMPS(prjΨ1)
-        b = BlockedMPS(prjΨ2)
+        a = PartitionedMPS(prjΨ1)
+        b = PartitionedMPS(prjΨ2)
 
         @test MPS(2 * a) ≈ 2 * MPS(a) rtol = 1e-13
         @test MPS(a * 2) ≈ 2 * MPS(a) rtol = 1e-13

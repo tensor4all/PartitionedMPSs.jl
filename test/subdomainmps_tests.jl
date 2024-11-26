@@ -4,19 +4,18 @@ using ITensors
 
 using Random
 
-import ProjMPSs: ProjMPSs, Projector, project, ProjMPS, rearrange_siteinds
-#makesitediagonal,
-#extractdiagonal
+import PartitionedMPSs:
+    PartitionedMPSs, Projector, project, SubDomainMPS, rearrange_siteinds
 
-@testset "projmps.jl" begin
-    @testset "ProjMPS" begin
+@testset "subdomainmps.jl" begin
+    @testset "SubDomainMPS" begin
         Random.seed!(1)
         N = 3
         sitesx = [Index(2, "x=$n") for n in 1:N]
         sitesy = [Index(2, "y=$n") for n in 1:N]
         sites = collect(collect.(zip(sitesx, sitesy)))
         Ψ = MPS(collect(_random_mpo(sites)))
-        prjΨ = ProjMPS(Ψ)
+        prjΨ = SubDomainMPS(Ψ)
 
         prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
         prjΨ2 = project(prjΨ, Dict(sitesx[1] => 2))
@@ -38,7 +37,7 @@ import ProjMPSs: ProjMPSs, Projector, project, ProjMPS, rearrange_siteinds
 
         Ψ = MPS(collect(_random_mpo(sites)))
 
-        prjΨ = ProjMPS(Ψ)
+        prjΨ = SubDomainMPS(Ψ)
         prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
 
         sitesxy = collect(collect.(zip(sitesx, sitesy)))
@@ -50,7 +49,7 @@ import ProjMPSs: ProjMPSs, Projector, project, ProjMPS, rearrange_siteinds
         prjΨ1_rearranged = rearrange_siteinds(prjΨ1, sites_rearranged)
 
         @test reduce(*, MPS(prjΨ1)) ≈ reduce(*, MPS(prjΨ1_rearranged))
-        @test ProjMPSs.siteinds(prjΨ1_rearranged) == sites_rearranged
+        @test PartitionedMPSs.siteinds(prjΨ1_rearranged) == sites_rearranged
     end
 
     @testset "makesitediagonal and extractdiagonal" begin
@@ -65,7 +64,7 @@ import ProjMPSs: ProjMPSs, Projector, project, ProjMPS, rearrange_siteinds
 
         Ψ = MPS(collect(_random_mpo(sites)))
 
-        prjΨ = ProjMPS(Ψ)
+        prjΨ = SubDomainMPS(Ψ)
         prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
 
         prjΨ1_diagonalz = makesitediagonal(prjΨ1, "y")

@@ -1,18 +1,20 @@
-using ProjMPSs
+using PartitionedMPSs
 using Documenter
 
-DocMeta.setdocmeta!(ProjMPSs, :DocTestSetup, :(using ProjMPSs); recursive=true)
+DocMeta.setdocmeta!(
+    PartitionedMPSs, :DocTestSetup, :(using PartitionedMPSs); recursive=true
+)
 
 makedocs(;
-    modules=[ProjMPSs],
+    modules=[PartitionedMPSs],
     authors="Hiroshi Shinaoka <h.shinaoka@gmail.com> and contributors",
-    sitename="ProjMPSs.jl",
+    sitename="PartitionedMPSs.jl",
     format=Documenter.HTML(;
-        canonical="https://github.com/tensor4all/ProjMPSs.jl",
+        canonical="https://github.com/tensor4all/PartitionedMPSs.jl",
         edit_link="main",
         assets=String[],
     ),
     pages=["Home" => "index.md"],
 )
 
-deploydocs(; repo="github.com/tensor4all/ProjMPSs.jl.git", devbranch="main")
+deploydocs(; repo="github.com/tensor4all/PartitionedMPSs.jl.git", devbranch="main")

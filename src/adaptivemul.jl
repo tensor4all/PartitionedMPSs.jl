@@ -1,16 +1,16 @@
 """
-Lazy evaluation for contraction of two ProjMPS objects.
+Lazy evaluation for contraction of two SubDomainMPS objects.
 """
 struct LazyContraction
-    a::ProjMPS
-    b::ProjMPS
+    a::SubDomainMPS
+    b::SubDomainMPS
     projector::Projector # Projector for the external indices of (a * b)
-    function LazyContraction(a::ProjMPS, b::ProjMPS)
+    function LazyContraction(a::SubDomainMPS, b::SubDomainMPS)
         shared_inds = Set{Index}()
         for (a_, b_) in zip(siteinds(a), siteinds(b))
             cinds = commoninds(a_, b_)
             length(cinds) > 0 ||
-                error("The two ProjMPS must have common indices at every site.")
+                error("The two SubDomainMPS must have common indices at every site.")
             shared_inds = shared_inds ∪ cinds
         end
         #@show  typeof(_projector_after_contract(a, b))
@@ -18,7 +18,7 @@ struct LazyContraction
     end
 end
 
-function lazycontraction(a::ProjMPS, b::ProjMPS)::Union{LazyContraction,Nothing}
+function lazycontraction(a::SubDomainMPS, b::SubDomainMPS)::Union{LazyContraction,Nothing}
     # If any of shared indices between a and b is projected at different levels, return nothing
     if a.projector & b.projector === nothing
         return nothing
@@ -40,21 +40,21 @@ function project(obj::LazyContraction, prj::Projector; kwargs...)::LazyContracti
 end
 
 """
-Perform contruction of two BlockedMPS objects.
+Perform contruction of two PartitionedMPS objects.
 
-The ProjMPS objects of each BlockedMPS do not overlap with each other.
+The SubDomainMPS objects of each PartitionedMPS do not overlap with each other.
 This makes the algorithm much simpler
 """
 function adaptivecontract(
-    a::BlockedMPS,
-    b::BlockedMPS,
+    a::PartitionedMPS,
+    b::PartitionedMPS,
     pordering::AbstractVector{Index}=Index[];
     alg="fit",
     cutoff=1e-25,
     maxdim=typemax(Int),
     kwargs...,
 )
-    patches = Dict{Projector,Vector{Union{ProjMPS,LazyContraction}}}()
+    patches = Dict{Projector,Vector{Union{SubDomainMPS,LazyContraction}}}()
 
     for x in values(a), y in values(b) # FIXME: Naive loop over O(N^2) pairs
         xy = lazycontraction(x, y)
@@ -69,15 +69,15 @@ function adaptivecontract(
     end
 
     # Check no overlapping projectors.
-    # This should be prohibited by the fact that the blocks in each ProjMPS obejct do not overlap.
+    # This should be prohibited by the fact that the blocks in each SubDomainMPS obejct do not overlap.
     isdisjoint(collect(keys(patches))) || error("Overlapping projectors")
 
-    result_blocks = ProjMPS[]
+    result_blocks = SubDomainMPS[]
     for (p, muls) in patches
         prjmpss = [contract(m.a, m.b; alg, cutoff, maxdim, kwargs...) for m in muls]
         #patches[p] = +(prjmpss...; alg="fit", cutoff, maxdim)
         push!(result_blocks, +(prjmpss...; alg="fit", cutoff, maxdim))
     end
 
-    return BlockedMPS(result_blocks)
+    return PartitionedMPS(result_blocks)
 end

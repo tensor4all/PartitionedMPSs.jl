@@ -1,4 +1,4 @@
-module ProjMPSs
+module PartitionedMPSs
 
 import OrderedCollections: OrderedSet, OrderedDict
 using EllipsisNotation
@@ -12,8 +12,8 @@ import FastMPOContractions as FMPOC
 
 include("util.jl")
 include("projector.jl")
-include("projmps.jl")
-include("blockedmps.jl")
+include("subdomainmps.jl")
+include("partitionedmps.jl")
 include("patching.jl")
 include("contract.jl")
 include("adaptivemul.jl")

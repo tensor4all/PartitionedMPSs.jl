@@ -1,5 +1,5 @@
 using Test
-import ProjMPSs: ProjMPSs, Projector, project, ProjMPS, projcontract
+import PartitionedMPSs: PartitionedMPSs, Projector, project, SubDomainMPS, projcontract
 import FastMPOContractions as FMPOC
 
 asMPO(M::AbstractMPS) = MPO(collect(M))
@@ -14,10 +14,10 @@ asMPO(M::AbstractMPS) = MPO(collect(M))
         sitesa = collect(collect.(zip(sitesx, sitesk, sitesy)))
         sitesb = collect(collect.(zip(sitesy, sitesz)))
 
-        p1 = project(ProjMPS(_random_mpo(sitesa)), Projector(Dict(sitesx[1] => 1)))
-        p2 = project(ProjMPS(_random_mpo(sitesb)), Projector(Dict(sitesz[1] => 1)))
+        p1 = project(SubDomainMPS(_random_mpo(sitesa)), Projector(Dict(sitesx[1] => 1)))
+        p2 = project(SubDomainMPS(_random_mpo(sitesb)), Projector(Dict(sitesz[1] => 1)))
 
-        p12 = ProjMPSs.contract(p1, p2; alg="naive")
+        p12 = PartitionedMPSs.contract(p1, p2; alg="naive")
 
         @test p12.projector == Projector(Dict(sitesx[1] => 1, sitesz[1] => 1))
 
@@ -43,11 +43,11 @@ asMPO(M::AbstractMPS) = MPO(collect(M))
         b = _random_mpo(sitesb; linkdims=linkdims)
 
         proj_a = [
-            project(ProjMPS(a), Projector(Dict(sitesx[1] => i, sitesy[1] => j))) for
+            project(SubDomainMPS(a), Projector(Dict(sitesx[1] => i, sitesy[1] => j))) for
             i in 1:2, j in 1:2
         ]
         proj_b = [
-            project(ProjMPS(b), Projector(Dict(sitesy[1] => i, sitesz[1] => j))) for
+            project(SubDomainMPS(b), Projector(Dict(sitesy[1] => i, sitesz[1] => j))) for
             i in 1:2, j in 1:2
         ]
 
@@ -71,9 +71,9 @@ asMPO(M::AbstractMPS) = MPO(collect(M))
 
         patchorder = patching ? collect(Iterators.flatten(zip(sitesx, sitesz))) : Index[]
         maxdim_ = patching ? linkdims^2 : typemax(Int)
-        ab = ProjMPSs.contract(
-            BlockedMPS(vec(proj_a)),
-            BlockedMPS(vec(proj_b));
+        ab = PartitionedMPSs.contract(
+            PartitionedMPS(vec(proj_a)),
+            PartitionedMPS(vec(proj_b));
             alg="fit",
             cutoff,
             maxdim=maxdim_,

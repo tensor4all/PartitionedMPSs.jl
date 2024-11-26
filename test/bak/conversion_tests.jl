@@ -5,13 +5,13 @@ using ITensors
 import TensorCrossInterpolation as TCI
 import TCIAlgorithms as TCIA
 using TCIITensorConversion
-import ProjMPSs: ProjMPS, BlockedMPS
+import PartitionedMPSs: SubDomainMPS, PartitionedMPS
 #import FastMPOContractions as FMPOC
 #import Quantics: asMPO
 #using Quantics: Quantics
 
 @testset "conversion.jl" begin
-    @testset "TCIA.ProjTensorTrain => ProjMPS" begin
+    @testset "TCIA.ProjTensorTrain => SubDomainMPS" begin
         N = 4
         χ = 2
         bonddims = [1, χ, χ, χ, 1]
@@ -38,12 +38,12 @@ import ProjMPSs: ProjMPS, BlockedMPS
         sitesy = [Index(localdims2[n], "y=$n") for n in 1:N]
         sites = collect(collect.(zip(sitesx, sitesy)))
 
-        prjmps = ProjMPS(prjtt, sites)
+        prjmps = SubDomainMPS(prjtt, sites)
 
         @test MPS(prjmps) ≈ MPS(prjtt.data; sites=sites)
     end
 
-    @testset "TCIA.ProjTTContainer => BlockedMPS" begin
+    @testset "TCIA.ProjTTContainer => PartitionedMPS" begin
         N = 4
         χ = 2
         bonddims = [1, χ, χ, χ, 1]
@@ -75,7 +75,7 @@ import ProjMPSs: ProjMPS, BlockedMPS
         sitesy = [Index(localdims2[n], "y=$n") for n in 1:N]
         sites = collect(collect.(zip(sitesx, sitesy)))
 
-        bmps = BlockedMPS(prjttcontainer, sites)
+        bmps = PartitionedMPS(prjttcontainer, sites)
 
         @test MPS(bmps) ≈ +(
             MPS(prjtt1.data; sites=sites), MPS(prjtt2.data; sites=sites); alg="directsum"

@@ -1,7 +1,7 @@
 """
-Conversion from a `TCIAlgorithms.ProjTensorTrain` to a `ProjMPS`.
+Conversion from a `TCIAlgorithms.ProjTensorTrain` to a `SubDomainMPS`.
 """
-function ProjMPS(projtt::TCIA.ProjTensorTrain{T}, sites)::ProjMPS where {T}
+function SubDomainMPS(projtt::TCIA.ProjTensorTrain{T}, sites)::SubDomainMPS where {T}
     links = [Index(ld, "Link,l=$l") for (l, ld) in enumerate(TCI.linkdims(projtt.data))]
 
     tensors = ITensor[]
@@ -47,12 +47,12 @@ function ProjMPS(projtt::TCIA.ProjTensorTrain{T}, sites)::ProjMPS where {T}
         end
     end
 
-    return ProjMPS(MPS(tensors), Projector(proj))
+    return SubDomainMPS(MPS(tensors), Projector(proj))
 end
 
 """
-Conversion from a `TCIAlgorithms.Proj` to a `BlockedMPS`.
+Conversion from a `TCIAlgorithms.Proj` to a `PartitionedMPS`.
 """
-function BlockedMPS(obj::TCIA.ProjTTContainer{T}, sites)::BlockedMPS where {T}
-    return BlockedMPS([ProjMPS(x, sites) for x in obj.data])
+function PartitionedMPS(obj::TCIA.ProjTTContainer{T}, sites)::PartitionedMPS where {T}
+    return PartitionedMPS([SubDomainMPS(x, sites) for x in obj.data])
 end

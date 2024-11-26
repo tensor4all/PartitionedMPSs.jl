@@ -1,7 +1,8 @@
 using Test
 
 using ITensors
-import ProjMPSs: ProjMPSs, Projector, project, ProjMPS, projcontract, BlockedMPS
+import PartitionedMPSs:
+    PartitionedMPSs, Projector, project, SubDomainMPS, projcontract, PartitionedMPS
 import FastMPOContractions as FMPOC
 using Quantics: Quantics
 
@@ -43,14 +44,14 @@ using Quantics: Quantics
             ab_arr[:, :, k] .= a_arr[:, :, k] * b_arr[:, :, k]
         end
 
-        a_ = BlockedMPS([
+        a_ = PartitionedMPS([
             project(a, Projector(Dict(sx[1] => 1, sy[1] => 1))),
             project(a, Projector(Dict(sx[1] => 1, sy[1] => 2))),
             project(a, Projector(Dict(sx[1] => 2, sy[1] => 1))),
             project(a, Projector(Dict(sx[1] => 2, sy[1] => 2))),
         ])
 
-        b_ = BlockedMPS([
+        b_ = PartitionedMPS([
             project(b, Projector(Dict(sy[1] => 1, sz[1] => 1))),
             project(b, Projector(Dict(sy[1] => 1, sz[1] => 2))),
             project(b, Projector(Dict(sy[1] => 2, sz[1] => 1))),
@@ -60,7 +61,7 @@ using Quantics: Quantics
         @test a ≈ MPS(a_)
         @test b ≈ MPS(b_)
 
-        ab = ProjMPSs.automul(
+        ab = PartitionedMPSs.automul(
             a_, b_; tag_row="x", tag_shared="y", tag_col="z", alg="fit", cutoff
         )
         ab_ref = Quantics.automul(
