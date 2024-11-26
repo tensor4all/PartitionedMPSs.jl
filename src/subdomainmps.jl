@@ -85,9 +85,9 @@ function _iscompatible(projector::Projector, Ψ::AbstractMPS)
     return all((_iscompatible(projector, x) for x in Ψ))
 end
 
-function rearrange_siteinds(SubDomainMPS::SubDomainMPS, sites)
-    mps_rearranged = rearrange_siteinds(MPS(SubDomainMPS), sites)
-    return project(SubDomainMPS(mps_rearranged), SubDomainMPS.projector)
+function rearrange_siteinds(subdmps::SubDomainMPS, sites)
+    mps_rearranged = rearrange_siteinds(MPS(subdmps), sites)
+    return project(SubDomainMPS(mps_rearranged), subdmps.projector)
 end
 
 # Miscellaneous Functions
