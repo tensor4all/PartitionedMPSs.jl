@@ -1,10 +1,11 @@
 using Test
 
 using ITensors
+using ITensorMPS
 
 import PartitionedMPSs: Projector, project, SubDomainMPS, PartitionedMPS
 
-@testset "PartitionedMPS.jl" begin
+@testset "partitionedmps.jl" begin
     @testset "two blocks" begin
         N = 3
         sitesx = [Index(2, "x=$n") for n in 1:N]
@@ -21,6 +22,10 @@ import PartitionedMPSs: Projector, project, SubDomainMPS, PartitionedMPS
 
         @test_throws ErrorException PartitionedMPS([prjΨ, prjΨ1])
         @test_throws ErrorException PartitionedMPS([prjΨ1, prjΨ1])
+
+        # Iterator and length
+        @test length(PartitionedMPS(prjΨ1)) == 1
+        @test length([(k, v) for (k, v) in PartitionedMPS(prjΨ1)]) == 1
 
         Ψreconst = PartitionedMPS(prjΨ1) + PartitionedMPS(prjΨ2)
         @test Ψreconst[1] == prjΨ1

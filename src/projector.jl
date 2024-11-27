@@ -30,7 +30,9 @@ Projector(singleproj::Pair{Index{T},Int}) where {T} =
     Projector(Dict{Index,Int}(singleproj.first => singleproj.second))
 
 function Base.hash(p::Projector, h::UInt)
-    tmp = hash(collect(Iterators.flatten(((hash(k, h), hash(v, h)) for (k, v) in p.data))))
+    tmp = hash(
+        sort(collect(Iterators.flatten(((hash(k, h), hash(v, h)) for (k, v) in p.data))))
+    )
     return Base.hash(tmp, h)
 end
 

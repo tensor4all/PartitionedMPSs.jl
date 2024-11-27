@@ -117,7 +117,7 @@ function projcontract(
     end
 
     if length(results) == 1
-        return results[1]
+        return results
     end
 
     res = if length(patchorder) > 0

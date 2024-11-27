@@ -6,6 +6,7 @@ struct PartitionedMPS
     data::OrderedDict{Projector,SubDomainMPS}
 
     function PartitionedMPS(data::AbstractVector{SubDomainMPS})
+        length(data) > 0 || error("Empty data")
         sites_all = [siteinds(prjmps) for prjmps in data]
         for n in 2:length(data)
             Set(sites_all[n]) == Set(sites_all[1]) || error("Sitedims mismatch")
@@ -32,9 +33,10 @@ end
 ITensors.siteinds(obj::PartitionedMPS) = siteindices(obj)
 
 """
-Get the number of sites in the PartitionedMPS
+Get the number of the data in the PartitionedMPS.
+This is NOT the number of sites in the PartitionedMPS.
 """
-Base.length(obj::PartitionedMPS) = length(first(obj.data))
+Base.length(obj::PartitionedMPS) = length(obj.data)
 
 """
 Indexing for PartitionedMPS. This is deprecated and will be removed in the future.
