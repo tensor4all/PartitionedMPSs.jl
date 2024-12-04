@@ -10,6 +10,9 @@ import ITensors.TagSets: hastag, hastags
 
 import FastMPOContractions as FMPOC
 
+default_cutoff() = 1e-25
+default_maxdim() = typemax(Int)
+
 include("util.jl")
 include("projector.jl")
 include("subdomainmps.jl")

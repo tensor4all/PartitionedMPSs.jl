@@ -50,8 +50,8 @@ function adaptivecontract(
     b::PartitionedMPS,
     pordering::AbstractVector{Index}=Index[];
     alg="fit",
-    cutoff=1e-25,
-    maxdim=typemax(Int),
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
     kwargs...,
 )
     patches = Dict{Projector,Vector{Union{SubDomainMPS,LazyContraction}}}()

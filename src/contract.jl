@@ -57,8 +57,8 @@ function projcontract(
     M2::SubDomainMPS,
     proj::Projector;
     alg="fit",
-    cutoff=1e-25,
-    maxdim=typemax(Int),
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
     verbosity=0,
     kwargs...,
 )::Union{Nothing,SubDomainMPS}
@@ -92,8 +92,8 @@ function projcontract(
     proj::Projector;
     alg="fit",
     alg_sum="fit",
-    cutoff=1e-25,
-    maxdim=typemax(Int),
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
     patchorder=Index[],
     kwargs...,
 )::Union{Nothing,Vector{SubDomainMPS}}
@@ -140,8 +140,8 @@ function contract(
     M1::PartitionedMPS,
     M2::PartitionedMPS;
     alg="fit",
-    cutoff=1e-25,
-    maxdim=typemax(Int),
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
     patchorder=Index[],
     kwargs...,
 )::Union{PartitionedMPS}

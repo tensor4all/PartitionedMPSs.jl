@@ -131,18 +131,54 @@ function Base.:-(obj::PartitionedMPS)::PartitionedMPS
     return -1 * obj
 end
 
-function truncate(obj::PartitionedMPS; kwargs...)::PartitionedMPS
-    return PartitionedMPS([truncate(v; kwargs...) for v in values(obj)])
+"""
+Truncate a PartitionedMPS object piecewise.
+
+Each SubDomainMPS in the PartitionedMPS is truncated independently,
+but the cutoff is adjusted according to the norm of each SubDomainMPS.
+The total error is the sum of the errors in each SubDomainMPS.
+"""
+function truncate(
+    obj::PartitionedMPS;
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
+    use_adaptive_weight=true,
+    kwargs...,
+)::PartitionedMPS
+    norm2 = [LinearAlgebra.norm(v)^2 for v in values(obj)]
+    total_norm2 = sum(norm2)
+    weights = [total_norm2 / norm2_v for norm2_v in norm2] # Initial weights (FIXME: better choice?)
+
+    compressed = obj
+
+    while true
+        compressed = PartitionedMPS([
+            truncate(v; cutoff=cutoff * w, maxdim, kwargs...) for
+            (v, w) in zip(values(obj), weights)
+        ])
+        actual_error = dist(obj, compressed)^2 / sum(norm2)
+        if actual_error < cutoff || !use_adaptive_weight
+            break
+        end
+
+        weights .*= cutoff / actual_error # Adjust weights
+    end
+
+    return compressed
 end
 
 # Only for debug
-function ITensorMPS.MPS(obj::PartitionedMPS; cutoff=1e-25, maxdim=typemax(Int))::MPS
+function ITensorMPS.MPS(
+    obj::PartitionedMPS; cutoff=default_cutoff(), maxdim=default_maxdim()
+)::MPS
     return reduce(
         (x, y) -> truncate(+(x, y; alg="directsum"); cutoff, maxdim), values(obj.data)
     ).data # direct sum
 end
 
-function ITensorMPS.MPO(obj::PartitionedMPS; cutoff=1e-25, maxdim=typemax(Int))::MPO
+function ITensorMPS.MPO(
+    obj::PartitionedMPS; cutoff=default_cutoff(), maxdim=default_maxdim()
+)::MPO
     return MPO(collect(MPS(obj; cutoff=cutoff, maxdim=maxdim, kwargs...)))
 end
 
@@ -167,4 +203,8 @@ where `s` must have a prime level of 0.
 """
 function extractdiagonal(obj::PartitionedMPS, site)
     return PartitionedMPS([extractdiagonal(prjmps, site) for prjmps in values(obj)])
+end
+
+function dist(a::PartitionedMPS, b::PartitionedMPS)
+    return sqrt(sum(ITensorMPS.dist(MPS(a[k]), MPS(b[k]))^2 for k in keys(a)))
 end
