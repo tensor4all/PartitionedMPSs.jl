@@ -76,6 +76,12 @@ function project(
     return project(projΨ, Projector(projector))
 end
 
+function project(
+    Ψ::AbstractMPS, projector::Dict{InsT,Int}
+)::Union{Nothing,SubDomainMPS} where {InsT}
+    return project(SubDomainMPS(Ψ), Projector(projector))
+end
+
 function _iscompatible(projector::Projector, tensor::ITensor)
     # Lazy implementation
     return ITensors.norm(project(tensor, projector) - tensor) == 0.0
