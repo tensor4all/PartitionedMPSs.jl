@@ -6,7 +6,6 @@ struct PartitionedMPS
     data::OrderedDict{Projector,SubDomainMPS}
 
     function PartitionedMPS(data::AbstractVector{SubDomainMPS})
-        length(data) > 0 || error("Empty data")
         sites_all = [siteinds(prjmps) for prjmps in data]
         for n in 2:length(data)
             Set(sites_all[n]) == Set(sites_all[1]) || error("Sitedims mismatch")
@@ -21,6 +20,24 @@ struct PartitionedMPS
 end
 
 PartitionedMPS(data::SubDomainMPS) = PartitionedMPS([data])
+
+PartitionedMPS() = PartitionedMPS(SubDomainMPS[])
+
+projectors(obj::PartitionedMPS) = keys(obj)
+
+function Base.append!(a::PartitionedMPS, b::PartitionedMPS)
+    if !isdisjoint(collect(union(projectors(a), projectors(b))))
+        error("Projectors are overlapping")
+    end
+    for (k, v) in b.data
+        a.data[k] = v
+    end
+    return a
+end
+
+function Base.append!(a::PartitionedMPS, b::AbstractVector{SubDomainMPS})
+    return append!(a, PartitionedMPS(b))
+end
 
 """
 Return the site indices of the PartitionedMPS.

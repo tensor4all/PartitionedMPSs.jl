@@ -15,6 +15,7 @@ import PartitionedMPSs: Projector, hasoverlap
         p1 = Projector(Dict(inds[1] => 1))
         p2 = Projector(Dict(inds[1] => 2))
         p3 = Projector(Dict(inds[1] => 1, inds[2] => 1))
+        @test p3 == Projector(inds[1] => 1, inds[2] => 1)
 
         @test (p1 == p1) == true
         @test (p2 == p2) == true

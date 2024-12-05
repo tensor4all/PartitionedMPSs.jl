@@ -145,7 +145,26 @@ function contract(
     patchorder=Index[],
     kwargs...,
 )::Union{PartitionedMPS}
-    #T1 = time_ns()
+    M = PartitionedMPS()
+    return contract!(M, M1, M2; alg, cutoff, maxdim, patchorder, kwargs...)
+end
+
+"""
+Contract two PartitionedMPS objects.
+
+Existing blocks `M` in the resulting PartitionedMPS will be overwritten if `overwrite=true`.
+"""
+function contract!(
+    M::PartitionedMPS,
+    M1::PartitionedMPS,
+    M2::PartitionedMPS;
+    alg="fit",
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
+    patchorder=Index[],
+    overwrite=true,
+    kwargs...,
+)::Union{PartitionedMPS}
     blocks = OrderedSet((
         _projector_after_contract(b1, b2)[1] for b1 in values(M1), b2 in values(M2)
     ))
@@ -154,21 +173,16 @@ function contract(
             error("After contraction, projectors must not overlap.")
         end
     end
-    prjmpss = SubDomainMPS[]
     M1_::Vector{SubDomainMPS} = collect(values(M1))
     M2_::Vector{SubDomainMPS} = collect(values(M2))
     for b in blocks
-        #t1 = time_ns()
+        if haskey(M.data, b) && !overwrite
+            continue
+        end
         res::Vector{SubDomainMPS} = projcontract(
             M1_, M2_, b; alg, cutoff, maxdim, patchorder, kwargs...
         )
-        #t2 = time_ns()
-        #println("projcontract: $((t2 - t1)*1e-9) s")
-        if res !== nothing
-            append!(prjmpss, res)
-        end
+        append!(M, res)
     end
-    #T2 = time_ns()
-    #println("projcontract, all: $((T2 - T1)*1e-9) s")
-    return PartitionedMPS(prjmpss)
+    return M
 end

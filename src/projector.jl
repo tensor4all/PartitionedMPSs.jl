@@ -19,6 +19,10 @@ function Projector(data::Dict{Index{T},Int}) where {T}
     return Projector(Dict{Index,Int}(k => v for (k, v) in data))
 end
 
+function Projector(pairs::Vararg{Pair{Index{T},Int}}) where {T}
+    return Projector(Dict{Index,Int}(pairs))
+end
+
 function Projector()
     return Projector(Dict{Index,Int}())
 end
