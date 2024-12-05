@@ -30,10 +30,15 @@ import PartitionedMPSs: PartitionedMPSs, Projector, project, SubDomainMPS, Parti
         @test length([(k, v) for (k, v) in PartitionedMPS(prjΨ1)]) == 1
 
         Ψreconst = PartitionedMPS(prjΨ1) + PartitionedMPS(prjΨ2)
-        @test Ψreconst[1] == prjΨ1
-        @test Ψreconst[2] == prjΨ2
+        @test Ψreconst[1] ≈ prjΨ1
+        @test Ψreconst[2] ≈ prjΨ2
         @test MPS(Ψreconst) ≈ Ψ
         @test ITensors.norm(Ψreconst) ≈ ITensors.norm(MPS(Ψreconst))
+
+        # Summation
+        coeffs = (1.1, 0.9)
+        @test MPS(+(PartitionedMPS(prjΨ1), PartitionedMPS(prjΨ2); coeffs=coeffs)) ≈
+            coeffs[1] * MPS(prjΨ1) + coeffs[2] * MPS(prjΨ2)
     end
 
     @testset "two blocks (general key)" begin

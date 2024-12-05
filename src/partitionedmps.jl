@@ -118,22 +118,44 @@ function Base.:+(
     alg="directsum",
     cutoff=0.0,
     maxdim=typemax(Int),
+    coeffs=(1.0, 1.0),
     kwargs...,
 )::PartitionedMPS
+    result = PartitionedMPS()
+    return add!(result, a, b; alg, cutoff, maxdim, coeffs, kwargs...)
+end
+
+function add!(
+    result::PartitionedMPS,
+    a::PartitionedMPS,
+    b::PartitionedMPS;
+    alg="directsum",
+    cutoff=0.0,
+    maxdim=typemax(Int),
+    overwrite=true,
+    coeffs=(1.0, 1.0),
+    kwargs...,
+)::PartitionedMPS
+    length(coeffs) == 2 || error("coeffs must be a tuple of length 2")
     data = SubDomainMPS[]
     for k in unique(vcat(collect(keys(a)), collect(keys(b)))) # preserve order
+        if k ∈ keys(result) && !overwrite
+            continue
+        end
         if k ∈ keys(a) && k ∈ keys(b)
             a[k].projector == b[k].projector || error("Projectors mismatch at $(k)")
-            push!(data, +(a[k], b[k]; alg, cutoff, maxdim, kwargs...))
+            push!(
+                data, +(coeffs[1] * a[k], coeffs[2] * b[k]; alg, cutoff, maxdim, kwargs...)
+            )
         elseif k ∈ keys(a)
-            push!(data, a[k])
+            push!(data, coeffs[1] * a[k])
         elseif k ∈ keys(b)
-            push!(data, b[k])
+            push!(data, coeffs[2] * b[k])
         else
             error("Something went wrong")
         end
     end
-    return PartitionedMPS(data)
+    return append!(result, data)
 end
 
 function Base.:*(a::PartitionedMPS, b::Number)::PartitionedMPS
