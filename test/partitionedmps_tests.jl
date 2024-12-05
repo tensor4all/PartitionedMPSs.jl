@@ -65,6 +65,20 @@ import PartitionedMPSs: PartitionedMPSs, Projector, project, SubDomainMPS, Parti
         @test MPS((a + b) + 2 * (b + a)) ≈ 3 * Ψ rtol = 1e-13
     end
 
+    @testset "add" begin
+        Random.seed!(1234)
+        N = 3
+        d = 10
+        sites = [Index(d, "x=$n") for n in 1:N]
+        Ψ = MPS(collect(_random_mpo([[s] for s in sites])))
+
+        projectors = [Projector(sites[1] => d_) for d_ in 1:d]
+        coeffs = rand(length(projectors))
+        prjΨs = [project(Ψ, p) for p in projectors]
+
+        @test MPS(+([PartitionedMPS(x) for x in prjΨs]...; coeffs=coeffs)) ≈ +([c * MPS(x) for (c, x) in zip(coeffs, prjΨs)]...; alg="directsum")
+    end
+
     @testset "truncate" begin
         for seed in [1, 2, 3, 4, 5]
             Random.seed!(seed)
