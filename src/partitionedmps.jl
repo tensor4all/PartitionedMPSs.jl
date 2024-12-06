@@ -113,6 +113,21 @@ If the two projects have the same projectors in the same order, the resulting Pa
 By default, we use `directsum` algorithm to compute the sum and no truncation is performed.
 """
 function Base.:+(
+    partmpss::PartitionedMPS...;
+    alg="directsum",
+    cutoff=0.0,
+    maxdim=typemax(Int),
+    coeffs=ones(length(partmpss)),
+    kwargs...,
+)::PartitionedMPS
+    result = PartitionedMPS()
+    for (coeff, partmps) in zip(coeffs, partmpss)
+        result = +(result, coeff * partmps; alg, cutoff, maxdim, kwargs...)
+    end
+    return result
+end
+
+function Base.:+(
     a::PartitionedMPS,
     b::PartitionedMPS;
     alg="directsum",
@@ -182,6 +197,7 @@ function truncate(
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
     use_adaptive_weight=true,
+    maxrefinement=4,
     kwargs...,
 )::PartitionedMPS
     norm2 = [LinearAlgebra.norm(v)^2 for v in values(obj)]
@@ -190,7 +206,7 @@ function truncate(
 
     compressed = obj
 
-    while true
+    for _ in 1:maxrefinement
         compressed = PartitionedMPS([
             truncate(v; cutoff=cutoff * w, maxdim, kwargs...) for
             (v, w) in zip(values(obj), weights)
@@ -200,7 +216,7 @@ function truncate(
             break
         end
 
-        weights .*= cutoff / actual_error # Adjust weights
+        weights .*= min(cutoff / actual_error, 0.5) # Adjust weights
     end
 
     return compressed

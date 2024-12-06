@@ -66,6 +66,18 @@ function project(projΨ::SubDomainMPS, projector::Projector)::Union{Nothing,SubD
     )
 end
 
+function project(
+    projΨ::SubDomainMPS, pairs::Vararg{Pair{Index{T},Int}}
+)::Union{Nothing,SubDomainMPS} where {T}
+    return project(projΨ, Projector(pairs...))
+end
+
+function project(
+    Ψ::AbstractMPS, pairs::Vararg{Pair{Index{T},Int}}
+)::Union{Nothing,SubDomainMPS} where {T}
+    return project(Ψ, Projector(pairs...))
+end
+
 function project(Ψ::AbstractMPS, projector::Projector)::Union{Nothing,SubDomainMPS}
     return project(SubDomainMPS(Ψ), projector)
 end

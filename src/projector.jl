@@ -43,6 +43,7 @@ end
 projectedinds(p::Projector) = p.data
 
 Base.getindex(p::Projector, inds) = p.data[inds]
+Base.getindex(p::Projector, ind, default) = get(p.data, ind, default)
 Base.keys(p::Projector) = keys(p.data)
 
 function Base.iterate(obj::Projector, state)
