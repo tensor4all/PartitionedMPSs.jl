@@ -197,6 +197,7 @@ function truncate(
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
     use_adaptive_weight=true,
+    maxrefinement=4,
     kwargs...,
 )::PartitionedMPS
     norm2 = [LinearAlgebra.norm(v)^2 for v in values(obj)]
@@ -205,7 +206,7 @@ function truncate(
 
     compressed = obj
 
-    while true
+    for _ in 1:maxrefinement
         compressed = PartitionedMPS([
             truncate(v; cutoff=cutoff * w, maxdim, kwargs...) for
             (v, w) in zip(values(obj), weights)
@@ -215,7 +216,7 @@ function truncate(
             break
         end
 
-        weights .*= cutoff / actual_error # Adjust weights
+        weights .*= min(cutoff / actual_error, 0.5) # Adjust weights
     end
 
     return compressed
