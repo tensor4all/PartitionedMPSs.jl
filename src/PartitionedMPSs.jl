@@ -4,7 +4,7 @@ import OrderedCollections: OrderedSet, OrderedDict
 using EllipsisNotation
 using LinearAlgebra: LinearAlgebra
 
-import ITensors: ITensors, Index, ITensor, dim, inds, qr, commoninds, uniqueinds
+import ITensors: ITensors, Index, ITensor, dim, inds, qr, commoninds, uniqueinds, hasplev
 import ITensorMPS: ITensorMPS, AbstractMPS, MPS, MPO, siteinds, findsites
 import ITensors.TagSets: hastag, hastags
 

@@ -74,9 +74,9 @@ function adaptivecontract(
 
     result_blocks = SubDomainMPS[]
     for (p, muls) in patches
-        prjmpss = [contract(m.a, m.b; alg, cutoff, maxdim, kwargs...) for m in muls]
-        #patches[p] = +(prjmpss...; alg="fit", cutoff, maxdim)
-        push!(result_blocks, +(prjmpss...; alg="fit", cutoff, maxdim))
+        subdmps = [contract(m.a, m.b; alg, cutoff, maxdim, kwargs...) for m in muls]
+        #patches[p] = +(subdmps...; alg="fit", cutoff, maxdim)
+        push!(result_blocks, +(subdmps...; alg="fit", cutoff, maxdim))
     end
 
     return PartitionedMPS(result_blocks)

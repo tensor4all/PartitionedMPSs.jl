@@ -150,9 +150,11 @@ function _add(ψ::AbstractMPS...; alg="fit", cutoff=1e-15, maxdim=typemax(Int), 
         return +(ITensors.Algorithm(alg), ψ...)
     elseif alg == "densitymatrix"
         if cutoff < 1e-15
-            @warn "Cutoff is very small, it may suffer from numerical round errors. The densitymatrix algorithm squares the singular values of the reduce density matrix. Please consider increasing it or using fit algorithm."
+            @warn "Cutoff is very small, it may suffer from numerical round errors. 
+                    The densitymatrix algorithm squares the singular values of the reduce density matrix. 
+                    Please consider increasing it or using fit algorithm."
         end
-        return +(ITensors.Algorithm"densitymatrix"(), ψ...; cutoff, maxdim, kwargs...)
+        return +(ITensors.Algorithm("densitymatrix"), ψ...; cutoff, maxdim, kwargs...)
     elseif alg == "fit"
         function f(x, y)
             return ITensors.truncate(
@@ -211,39 +213,39 @@ function LinearAlgebra.norm(M::SubDomainMPS)
 end
 
 function _makesitediagonal(
-    SubDomainMPS::SubDomainMPS, sites::AbstractVector{Index{IndsT}}; baseplev=0
+    obj::SubDomainMPS, sites::AbstractVector{Index{IndsT}}; baseplev=0
 ) where {IndsT}
-    M_ = deepcopy(MPO(collect(MPS(SubDomainMPS))))
+    M_ = deepcopy(MPO(collect(MPS(obj))))
     for site in sites
         target_site::Int = only(findsites(M_, site))
         M_[target_site] = _asdiagonal(M_[target_site], site; baseplev=baseplev)
     end
-    return project(M_, SubDomainMPS.projector)
+    return project(M_, obj.projector)
 end
 
-function _makesitediagonal(SubDomainMPS::SubDomainMPS, site::Index; baseplev=0)
-    return _makesitediagonal(SubDomainMPS, [site]; baseplev=baseplev)
+function _makesitediagonal(obj::SubDomainMPS, site::Index; baseplev=0)
+    return _makesitediagonal(obj, [site]; baseplev=baseplev)
 end
 
-function makesitediagonal(SubDomainMPS::SubDomainMPS, site::Index)
-    return _makesitediagonal(SubDomainMPS, site; baseplev=0)
+function makesitediagonal(obj::SubDomainMPS, site::Index)
+    return _makesitediagonal(obj, site; baseplev=0)
 end
 
-function makesitediagonal(SubDomainMPS::SubDomainMPS, sites::AbstractVector{Index})
-    return _makesitediagonal(SubDomainMPS, sites; baseplev=0)
+function makesitediagonal(obj::SubDomainMPS, sites::AbstractVector{Index})
+    return _makesitediagonal(obj, sites; baseplev=0)
 end
 
-function makesitediagonal(SubDomainMPS::SubDomainMPS, tag::String)
-    mps_diagonal = makesitediagonal(MPS(SubDomainMPS), tag)
+function makesitediagonal(obj::SubDomainMPS, tag::String)
+    mps_diagonal = makesitediagonal(MPS(obj), tag)
     SubDomainMPS_diagonal = SubDomainMPS(mps_diagonal)
 
     target_sites = findallsiteinds_by_tag(
-        unique(ITensors.noprime.(Iterators.flatten(siteinds(SubDomainMPS)))); tag=tag
+        unique(ITensors.noprime.(Iterators.flatten(siteinds(obj)))); tag=tag
     )
 
-    newproj = deepcopy(SubDomainMPS.projector)
+    newproj = deepcopy(obj.projector)
     for s in target_sites
-        if isprojectedat(SubDomainMPS.projector, s)
+        if isprojectedat(obj.projector, s)
             newproj[ITensors.prime(s)] = newproj[s]
         end
     end
@@ -252,7 +254,10 @@ function makesitediagonal(SubDomainMPS::SubDomainMPS, tag::String)
 end
 
 # FIXME: may be type unstable
-function _find_site_allplevs(tensor::ITensor, site::Index; maxplev=10)
+# Gianluca: FIXED (?)
+function _find_site_allplevs(
+    tensor::ITensor, site::Index{T}; maxplev=10
+)::Vector{Index{T}} where {T}
     ITensors.plev(site) == 0 || error("Site index must be unprimed.")
     return [
         ITensors.prime(site, plev) for
@@ -261,9 +266,9 @@ function _find_site_allplevs(tensor::ITensor, site::Index; maxplev=10)
 end
 
 function extractdiagonal(
-    SubDomainMPS::SubDomainMPS, sites::AbstractVector{Index{IndsT}}
+    obj::SubDomainMPS, sites::AbstractVector{Index{IndsT}}
 ) where {IndsT}
-    tensors = collect(SubDomainMPS.data)
+    tensors = collect(obj.data)
     for i in eachindex(tensors)
         for site in intersect(sites, ITensors.inds(tensors[i]))
             sitewithallplevs = _find_site_allplevs(tensors[i], site)
@@ -275,7 +280,7 @@ function extractdiagonal(
         end
     end
 
-    projector = deepcopy(SubDomainMPS.projector)
+    projector = deepcopy(obj.projector)
     for site in sites
         if site' in keys(projector.data)
             delete!(projector.data, site')
@@ -284,9 +289,7 @@ function extractdiagonal(
     return SubDomainMPS(MPS(tensors), projector)
 end
 
-function extractdiagonal(SubDomainMPS::SubDomainMPS, tag::String)::SubDomainMPS
-    targetsites = findallsiteinds_by_tag(
-        unique(ITensors.noprime.(PartitionedMPSs._allsites(SubDomainMPS))); tag=tag
-    )
-    return extractdiagonal(SubDomainMPS, targetsites)
+function extractdiagonal(obj::SubDomainMPS, tag::String)::SubDomainMPS
+    targetsites = findallsiteinds_by_tag(unique(ITensors.noprime.(_allsites(obj))); tag=tag)
+    return extractdiagonal(obj, targetsites)
 end

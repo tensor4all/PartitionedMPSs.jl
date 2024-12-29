@@ -72,12 +72,12 @@ function projcontract(
     _, external_sites = _projector_after_contract(M1, M2)
 
     if !_is_externalsites_compatible_with_projector(external_sites, proj)
-        error("The projector contains projection onto a site what is not a external sites.")
+        error("The projector contains projection onto a site that is not an external site.")
     end
 
-    t1 = time_ns()
+    # t1 = time_ns()
     r = contract(M1, M2; alg, cutoff, maxdim, kwargs...)
-    t2 = time_ns()
+    # t2 = time_ns()
     #println("contract: $((t2 - t1)*1e-9) s")
     return r
 end

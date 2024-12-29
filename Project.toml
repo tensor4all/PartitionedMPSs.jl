@@ -28,7 +28,6 @@ julia = "1.6"
 [extras]
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Quantics = "87f76fb3-a40a-40c9-a63c-29fcfe7b7547"
 
 [targets]
-test = ["Test", "Random", "Quantics"]
+test = ["Test", "Random"]

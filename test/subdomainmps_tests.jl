@@ -5,7 +5,13 @@ using ITensors
 using Random
 
 import PartitionedMPSs:
-    PartitionedMPSs, Projector, project, SubDomainMPS, rearrange_siteinds
+    PartitionedMPSs,
+    Projector,
+    project,
+    SubDomainMPS,
+    rearrange_siteinds,
+    makesitediagonal,
+    extractdiagonal
 
 @testset "subdomainmps.jl" begin
     @testset "SubDomainMPS" begin
@@ -27,7 +33,6 @@ import PartitionedMPSs:
         @test Ψreconst ≈ Ψ
     end
 
-    #==
     @testset "rearrange_siteinds" begin
         N = 3
         sitesx = [Index(2, "x=$n") for n in 1:N]
@@ -75,6 +80,9 @@ import PartitionedMPSs:
 
         @test extractdiagonal(prjΨ1_diagonalz, "y") ≈ prjΨ1
 
+        diag_ok = true
+        offdiag_ok = true
+
         for indval in eachindval(sites_diagonalz...)
             ind = first.(indval)
             val = last.(indval)
@@ -94,11 +102,13 @@ import PartitionedMPSs:
 
             if isdiagonalelement
                 nondiaginds = unique(noprime(i) => v for (i, v) in indval)
-                @test psi_diag[indval...] == psi[nondiaginds...]
+                diag_ok = diag_ok && (psi_diag[indval...] == psi[nondiaginds...])
             else
-                @test iszero(psi_diag[indval...])
+                offdiag_ok = offdiag_ok && iszero(psi_diag[indval...])
             end
         end
+
+        @test diag_ok
+        @test offdiag_ok
     end
-    ==#
 end

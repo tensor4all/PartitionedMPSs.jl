@@ -105,3 +105,123 @@ function rearrange_siteinds(M::AbstractMPS, sites::Vector{Vector{Index{T}}})::MP
     tensors[end] *= t
     return MPS(tensors)
 end
+
+# A valid tag should not contain "=".
+_valid_tag(tag::String)::Bool = !occursin("=", tag)
+
+"""
+Find sites with the given tag
+
+For tag = `x`, if `sites` contains an Index object with `x`, the function returns a vector containing only its positon.
+
+If not, the function seach for all Index objects with tags `x=1`, `x=2`, ..., and return their positions.
+
+If no Index object is found, an empty vector will be returned.
+"""
+function findallsites_by_tag(
+    sites::Vector{Index{T}}; tag::String="x", maxnsites::Int=1000
+)::Vector{Int} where {T}
+    _valid_tag(tag) || error("Invalid tag: $tag")
+
+    # 1) Check if there is an Index with exactly `tag`
+    idx = findall(hastags(tag), sites)
+    if !isempty(idx)
+        if length(idx) > 1
+            error("Found more than one site index with tag $(tag)!")
+        end
+        return idx
+    end
+
+    # 2) If not found, search for tag=1, tag=2, ...
+    result = Int[]
+    for n in 1:maxnsites
+        tag_ = tag * "=$n"
+        idx = findall(hastags(tag_), sites)
+        if length(idx) == 0
+            break
+        elseif length(idx) > 1
+            error("Found more than one site indices with $(tag_)!")
+        end
+        push!(result, idx[1])
+    end
+    return result
+end
+
+function findallsiteinds_by_tag(
+    sites::AbstractVector{Index{T}}; tag::String="x", maxnsites::Int=1000
+) where {T}
+    _valid_tag(tag) || error("Invalid tag: $tag")
+    positions = findallsites_by_tag(sites; tag=tag, maxnsites=maxnsites)
+    return [sites[p] for p in positions]
+end
+
+function findallsites_by_tag(
+    sites::Vector{Vector{Index{T}}}; tag::String="x", maxnsites::Int=1000
+)::Vector{NTuple{2,Int}} where {T}
+    _valid_tag(tag) || error("Invalid tag: $tag")
+
+    sites_dict = Dict{Index{T},NTuple{2,Int}}()
+    for i in 1:length(sites)
+        for j in 1:length(sites[i])
+            sites_dict[sites[i][j]] = (i, j)
+        end
+    end
+
+    sitesflatten = collect(Iterators.flatten(sites))
+
+    idx_exact = findall(i -> hastags(i, tag) && hasplev(i, 0), sitesflatten)
+    if !isempty(idx_exact)
+        if length(idx_exact) > 1
+            error("Found more than one site index with tag '$tag'!")
+        end
+        # Return a single position
+        return [sites_dict[sitesflatten[only(idx_exact)]]]
+    end
+
+    result = NTuple{2,Int}[]
+    for n in 1:maxnsites
+        tag_ = tag * "=$n"
+        idx = findall(i -> hastags(i, tag_) && hasplev(i, 0), sitesflatten)
+        if length(idx) == 0
+            break
+        elseif length(idx) > 1
+            error("Found more than one site indices with $(tag_)!")
+        end
+
+        push!(result, sites_dict[sitesflatten[only(idx)]])
+    end
+    return result
+end
+
+function findallsiteinds_by_tag(
+    sites::Vector{Vector{Index{T}}}; tag::String="x", maxnsites::Int=1000
+)::Vector{Index{T}} where {T}
+    _valid_tag(tag) || error("Invalid tag: $tag")
+    positions = findallsites_by_tag(sites; tag=tag, maxnsites=maxnsites)
+    return [sites[i][j] for (i, j) in positions]
+end
+
+function makesitediagonal(M::AbstractMPS, tag::String)::MPS
+    M_ = deepcopy(MPO(collect(M)))
+    sites = siteinds(M_)
+
+    target_positions = findallsites_by_tag(siteinds(M_); tag=tag)
+
+    for t in eachindex(target_positions)
+        i, j = target_positions[t]
+        M_[i] = _asdiagonal(M_[i], sites[i][j])
+    end
+
+    return MPS(collect(M_))
+end
+
+function _extract_diagonal(t, site::Index{T}, site2::Index{T}) where {T<:Number}
+    dim(site) == dim(site2) || error("Dimension mismatch")
+    restinds = uniqueinds(inds(t), site, site2)
+    newdata = zeros(eltype(t), dim.(restinds)..., dim(site))
+    olddata = Array(t, restinds..., site, site2)
+    for i in 1:dim(site)
+        newdata[.., i] = olddata[.., i, i]
+    end
+    return ITensor(newdata, restinds..., site)
+end

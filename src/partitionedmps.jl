@@ -6,11 +6,11 @@ struct PartitionedMPS
     data::OrderedDict{Projector,SubDomainMPS}
 
     function PartitionedMPS(data::AbstractVector{SubDomainMPS})
-        sites_all = [siteinds(prjmps) for prjmps in data]
+        sites_all = [siteinds(subdmps) for subdmps in data]
         for n in 2:length(data)
             Set(sites_all[n]) == Set(sites_all[1]) || error("Sitedims mismatch")
         end
-        isdisjoint([prjmps.projector for prjmps in data]) || error("Projectors are overlapping")
+        isdisjoint([subdmps.projector for subdmps in data]) || error("Projectors are overlapping")
 
         dict_ = OrderedDict{Projector,SubDomainMPS}(
             data[i].projector => data[i] for i in 1:length(data)
@@ -58,19 +58,19 @@ Base.length(obj::PartitionedMPS) = length(obj.data)
 """
 Indexing for PartitionedMPS. This is deprecated and will be removed in the future.
 """
-function Base.getindex(bmps::PartitionedMPS, i::Integer)::SubDomainMPS
-    @warn "Indexing for PartitionedMPS is deprecated. Use getindex(bmps, p::Projector) instead."
-    return first(Iterators.drop(values(bmps.data), i - 1))
+function Base.getindex(partmps::PartitionedMPS, i::Integer)::SubDomainMPS
+    @warn "Indexing for PartitionedMPS is deprecated. Use getindex(partmps, p::Projector) instead."
+    return first(Iterators.drop(values(partmps.data), i - 1))
 end
 
 Base.getindex(obj::PartitionedMPS, p::Projector) = obj.data[p]
 
-function Base.iterate(bmps::PartitionedMPS, state)
-    return iterate(bmps.data, state)
+function Base.iterate(partmps::PartitionedMPS, state)
+    return iterate(partmps.data, state)
 end
 
-function Base.iterate(bmps::PartitionedMPS)
-    return iterate(bmps.data)
+function Base.iterate(partmps::PartitionedMPS)
+    return iterate(partmps.data)
 end
 
 """
@@ -92,11 +92,13 @@ Rearrange the site indices of the PartitionedMPS according to the given order.
 If nessecary, tensors are fused or split to match the new order.
 """
 function rearrange_siteinds(obj::PartitionedMPS, sites)
-    return PartitionedMPS([rearrange_siteinds(prjmps, sites) for prjmps in values(obj)])
+    return PartitionedMPS([rearrange_siteinds(subdmps, sites) for subdmps in values(obj)])
 end
 
 function prime(Ψ::PartitionedMPS, args...; kwargs...)
-    return PartitionedMPS([prime(prjmps, args...; kwargs...) for prjmps in values(Ψ.data)])
+    return PartitionedMPS([
+        prime(subdmps, args...; kwargs...) for subdmps in values(Ψ.data)
+    ])
 end
 
 """
@@ -234,7 +236,7 @@ end
 function ITensorMPS.MPO(
     obj::PartitionedMPS; cutoff=default_cutoff(), maxdim=default_maxdim()
 )::MPO
-    return MPO(collect(MPS(obj; cutoff=cutoff, maxdim=maxdim, kwargs...)))
+    return MPO(collect(MPS(obj; cutoff=cutoff, maxdim=maxdim)))
 end
 
 """
@@ -242,13 +244,13 @@ Make the PartitionedMPS diagonal for a given site index `s` by introducing a dum
 """
 function makesitediagonal(obj::PartitionedMPS, site)
     return PartitionedMPS([
-        _makesitediagonal(prjmps, site; baseplev=baseplev) for prjmps in values(obj)
+        _makesitediagonal(subdmps, site; baseplev=baseplev) for subdmps in values(obj)
     ])
 end
 
 function _makesitediagonal(obj::PartitionedMPS, site; baseplev=0)
     return PartitionedMPS([
-        _makesitediagonal(prjmps, site; baseplev=baseplev) for prjmps in values(obj)
+        _makesitediagonal(subdmps, site; baseplev=baseplev) for subdmps in values(obj)
     ])
 end
 
@@ -257,7 +259,7 @@ Extract diagonal of the PartitionedMPS for `s`, `s'`, ... for a given site index
 where `s` must have a prime level of 0.
 """
 function extractdiagonal(obj::PartitionedMPS, site)
-    return PartitionedMPS([extractdiagonal(prjmps, site) for prjmps in values(obj)])
+    return PartitionedMPS([extractdiagonal(subdmps, site) for subdmps in values(obj)])
 end
 
 function dist(a::PartitionedMPS, b::PartitionedMPS)
