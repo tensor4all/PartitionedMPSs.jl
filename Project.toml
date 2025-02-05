@@ -20,15 +20,15 @@ CoverageTools = "1"
 EllipsisNotation = "1"
 FastMPOContractions = "0.2.5"
 ITensorMPS = "0.3.2"
-ITensors = "0.7"
+ITensors = "0.7, 0.8"
 LocalCoverage = "0.8"
 OrderedCollections = "1.6.3"
 julia = "1.6"
 
 [extras]
+Quantics = "87f76fb3-a40a-40c9-a63c-29fcfe7b7547"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Quantics = "87f76fb3-a40a-40c9-a63c-29fcfe7b7547"
 
 [targets]
 test = ["Test", "Random", "Quantics"]
