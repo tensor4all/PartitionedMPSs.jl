@@ -124,12 +124,14 @@ function findallsites_by_tag(
     _valid_tag(tag) || error("Invalid tag: $tag")
 
     # 1) Check if there is an Index with exactly `tag`
-    idx = findall(hastags(tag), sites)
-    if !isempty(idx)
-        if length(idx) > 1
-            error("Found more than one site index with tag $(tag)!")
+    if tag != ""
+        idx = findall(hastags(tag), sites)
+        if !isempty(idx)
+            if length(idx) > 1
+                error("Found more than one site index with tag $(tag)!")
+            end
+            return idx
         end
-        return idx
     end
 
     # 2) If not found, search for tag=1, tag=2, ...
@@ -169,13 +171,15 @@ function findallsites_by_tag(
 
     sitesflatten = collect(Iterators.flatten(sites))
 
-    idx_exact = findall(i -> hastags(i, tag) && hasplev(i, 0), sitesflatten)
-    if !isempty(idx_exact)
-        if length(idx_exact) > 1
-            error("Found more than one site index with tag '$tag'!")
+    if tag != ""
+        idx_exact = findall(i -> hastags(i, tag) && hasplev(i, 0), sitesflatten)
+        if !isempty(idx_exact)
+            if length(idx_exact) > 1
+                error("Found more than one site index with tag '$tag'!")
+            end
+            # Return a single position
+            return [sites_dict[sitesflatten[only(idx_exact)]]]
         end
-        # Return a single position
-        return [sites_dict[sitesflatten[only(idx_exact)]]]
     end
 
     result = NTuple{2,Int}[]
@@ -201,6 +205,18 @@ function findallsiteinds_by_tag(
     return [sites[i][j] for (i, j) in positions]
 end
 
+# FIXME: may be type unstable
+# Gianluca: FIXED (?)
+function _find_site_allplevs(
+    tensor::ITensor, site::Index{T}; maxplev=10
+)::Vector{Index{T}} where {T}
+    ITensors.plev(site) == 0 || error("Site index must be unprimed.")
+    return [
+        ITensors.prime(site, plev) for
+        plev in 0:maxplev if ITensors.prime(site, plev) ∈ ITensors.inds(tensor)
+    ]
+end
+
 function makesitediagonal(M::AbstractMPS, tag::String)::MPS
     M_ = deepcopy(MPO(collect(M)))
     sites = siteinds(M_)
@@ -224,4 +240,53 @@ function _extract_diagonal(t, site::Index{T}, site2::Index{T}) where {T<:Number}
         newdata[.., i] = olddata[.., i, i]
     end
     return ITensor(newdata, restinds..., site)
+end
+
+"""
+Contract two adjacent tensors in MPO
+"""
+function combinesites(M::MPO, site1::Index, site2::Index)
+    p1 = findsite(M, site1)
+    p2 = findsite(M, site2)
+    p1 === nothing && error("Not found $site1")
+    p2 === nothing && error("Not found $site2")
+    abs(p1 - p2) == 1 || error(
+        "$site1 and $site2 are found at indices $p1 and $p2. They must be on two adjacent sites.",
+    )
+    tensors = ITensors.data(M)
+    idx = min(p1, p2)
+    tensor = tensors[idx] * tensors[idx + 1]
+    deleteat!(tensors, idx:(idx + 1))
+    insert!(tensors, idx, tensor)
+    return MPO(tensors)
+end
+
+function combinesites(
+    sites::Vector{Vector{Index{IndsT}}},
+    site1::AbstractVector{Index{IndsT}},
+    site2::AbstractVector{Index{IndsT}},
+) where {IndsT}
+    length(site1) == length(site2) || error("Length mismatch")
+    for (s1, s2) in zip(site1, site2)
+        sites = combinesites(sites, s1, s2)
+    end
+    return sites
+end
+
+function combinesites(
+    sites::Vector{Vector{Index{IndsT}}}, site1::Index, site2::Index
+) where {IndsT}
+    sites = deepcopy(sites)
+    p1 = findfirst(x -> x[1] == site1, sites)
+    p2 = findfirst(x -> x[1] == site2, sites)
+    if p1 === nothing || p2 === nothing
+        error("Site not found")
+    end
+    if abs(p1 - p2) != 1
+        error("Sites are not adjacent")
+    end
+    deleteat!(sites, min(p1, p2))
+    deleteat!(sites, min(p1, p2))
+    insert!(sites, min(p1, p2), [site1, site2])
+    return sites
 end

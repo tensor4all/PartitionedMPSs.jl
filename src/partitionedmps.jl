@@ -242,15 +242,17 @@ end
 """
 Make the PartitionedMPS diagonal for a given site index `s` by introducing a dummy index `s'`.
 """
-function makesitediagonal(obj::PartitionedMPS, site)
+function makesitediagonal(
+    obj::PartitionedMPS, sites::AbstractVector{Index{IndsT}}; baseplev=0
+) where {IndsT}
     return PartitionedMPS([
-        _makesitediagonal(subdmps, site; baseplev=baseplev) for subdmps in values(obj)
+        makesitediagonal(subdmps, sites; baseplev=baseplev) for subdmps in values(obj)
     ])
 end
 
-function _makesitediagonal(obj::PartitionedMPS, site; baseplev=0)
+function makesitediagonal(obj::PartitionedMPS, site::Index{IndsT}; baseplev=0) where {IndsT}
     return PartitionedMPS([
-        _makesitediagonal(subdmps, site; baseplev=baseplev) for subdmps in values(obj)
+        makesitediagonal(subdmps, site; baseplev=baseplev) for subdmps in values(obj)
     ])
 end
 
@@ -258,10 +260,14 @@ end
 Extract diagonal of the PartitionedMPS for `s`, `s'`, ... for a given site index `s`,
 where `s` must have a prime level of 0.
 """
-function extractdiagonal(obj::PartitionedMPS, site)
-    return PartitionedMPS([extractdiagonal(subdmps, site) for subdmps in values(obj)])
+function extractdiagonal(obj::PartitionedMPS, sites)
+    return PartitionedMPS([extractdiagonal(subdmps, sites) for subdmps in values(obj)])
 end
 
 function dist(a::PartitionedMPS, b::PartitionedMPS)
     return sqrt(sum(ITensorMPS.dist(MPS(a[k]), MPS(b[k]))^2 for k in keys(a)))
+end
+
+function _findallsiteinds_by_tag(partmps::PartitionedMPS; tag=tag)
+    return findallsiteinds_by_tag(only.(siteinds(partmps)); tag=tag)
 end

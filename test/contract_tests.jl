@@ -1,5 +1,6 @@
 using Test
-import PartitionedMPSs: PartitionedMPSs, Projector, project, SubDomainMPS, projcontract
+import PartitionedMPSs:
+    PartitionedMPSs, PartitionedMPS, Projector, project, SubDomainMPS, projcontract
 import FastMPOContractions as FMPOC
 
 asMPO(M::AbstractMPS) = MPO(collect(M))

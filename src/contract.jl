@@ -56,7 +56,7 @@ function projcontract(
     M1::SubDomainMPS,
     M2::SubDomainMPS,
     proj::Projector;
-    alg="fit",
+    alg="zipup",
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
     verbosity=0,
@@ -90,7 +90,7 @@ function projcontract(
     M1::AbstractVector{SubDomainMPS},
     M2::AbstractVector{SubDomainMPS},
     proj::Projector;
-    alg="fit",
+    alg="zipup",
     alg_sum="fit",
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
@@ -139,7 +139,7 @@ At each site, the objects must share at least one site index.
 function contract(
     M1::PartitionedMPS,
     M2::PartitionedMPS;
-    alg="fit",
+    alg="zipup",
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
     patchorder=Index[],
@@ -158,7 +158,7 @@ function contract!(
     M::PartitionedMPS,
     M1::PartitionedMPS,
     M2::PartitionedMPS;
-    alg="fit",
+    alg="zipup",
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
     patchorder=Index[],
@@ -179,10 +179,10 @@ function contract!(
         if haskey(M.data, b) && !overwrite
             continue
         end
-        res::Vector{SubDomainMPS} = projcontract(
-            M1_, M2_, b; alg, cutoff, maxdim, patchorder, kwargs...
-        )
-        append!(M, res)
+        res = projcontract(M1_, M2_, b; alg, cutoff, maxdim, patchorder, kwargs...)
+        if res !== nothing
+            append!(M, res)
+        end
     end
     return M
 end

@@ -5,7 +5,7 @@ using ITensors
 import TensorCrossInterpolation as TCI
 import TCIAlgorithms as TCIA
 using TCIITensorConversion
-import PartitionedMPSs: SubDomainMPS, PartitionedMPS
+import PartitionedMPSs: PartitionedMPSs, SubDomainMPS, PartitionedMPS
 #import FastMPOContractions as FMPOC
 #import Quantics: asMPO
 #using Quantics: Quantics
