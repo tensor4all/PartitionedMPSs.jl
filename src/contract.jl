@@ -143,10 +143,15 @@ function contract(
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
     patchorder=Index[],
+    parallel::Bool=false,
     kwargs...,
 )::Union{PartitionedMPS}
     M = PartitionedMPS()
-    return contract!(M, M1, M2; alg, cutoff, maxdim, patchorder, kwargs...)
+    if parallel
+        return parallel_contract!(M, M1, M2; alg, cutoff, maxdim, patchorder, kwargs...)
+    else
+        return contract!(M, M1, M2; alg, cutoff, maxdim, patchorder, kwargs...)
+    end
 end
 
 """
@@ -184,5 +189,66 @@ function contract!(
             append!(M, res)
         end
     end
+    return M
+end
+
+function parallel_contract!(
+    M::PartitionedMPS,
+    M1::PartitionedMPS,
+    M2::PartitionedMPS;
+    alg="zipup",
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
+    patchorder=Index[],
+    overwrite=true,
+    kwargs...,
+)::Union{PartitionedMPS}
+    blocks_to_sets = OrderedDict{Projector,Tuple{Set{SubDomainMPS},Set{SubDomainMPS}}}()
+
+    for b1 in values(M1)
+        for b2 in values(M2)
+            if hasoverlap(b1.projector, b2.projector)
+                r = _projector_after_contract(b1, b2)[1]
+                if haskey(blocks_to_sets, r)
+                    set1, set2 = blocks_to_sets[r]
+                    push!(set1, b1)
+                    push!(set2, b2)
+                else
+                    blocks_to_sets[r] = (Set([b1]), Set([b2]))
+                end
+            end
+        end
+    end
+
+    for b1 in keys(blocks_to_sets), b2 in keys(blocks_to_sets)
+        if b1 != b2 && hasoverlap(b1, b2)
+            error("After contraction, projectors must not overlap.")
+        end
+    end
+
+    # Builds tasks to parallelise
+    tasks = Vector{Tuple{Projector,Vector{SubDomainMPS},Vector{SubDomainMPS}}}()
+    for (proj, (set1, set2)) in blocks_to_sets
+        if haskey(M.data, proj) && !overwrite
+            continue
+        end
+        push!(tasks, (proj, collect(set1), collect(set2)))
+    end
+
+    function process_task(task)
+        proj, M1_subs, M2_subs = task
+        return projcontract(
+            M1_subs, M2_subs, proj; alg, cutoff, maxdim, patchorder, kwargs...
+        )
+    end
+
+    results_parallel = pmap(process_task, tasks)
+
+    for res in results_parallel
+        if res !== nothing
+            append!(M, res)
+        end
+    end
+
     return M
 end
