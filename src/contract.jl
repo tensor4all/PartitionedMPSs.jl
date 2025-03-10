@@ -171,14 +171,18 @@ function contract(
     cutoff=default_cutoff(),
     maxdim=default_maxdim(),
     patchorder=Index[],
-    parallel::Bool=false,
+    parallel::Symbol=:serial,
     kwargs...,
 )::Union{PartitionedMPS}
     M = PartitionedMPS()
-    if parallel
+    if parallel == :distributed_thread
         return parallel_contract!(M, M1, M2; alg, cutoff, maxdim, patchorder, kwargs...)
-    else
+    elseif parallel == :distributed
+        return distribute_contract!(M, M1, M2; alg, cutoff, maxdim, patchorder, kwargs...)
+    elseif parallel == :serial
         return contract!(M, M1, M2; alg, cutoff, maxdim, patchorder, kwargs...)
+    else
+        error("Symbol $(parallel) not recongnized.")
     end
 end
 
@@ -198,39 +202,22 @@ function contract!(
     overwrite=true,
     kwargs...,
 )::Union{PartitionedMPS}
-    blocks = OrderedSet{Projector}()
-    blocks_to_sets = OrderedDict{Projector,Tuple{Set{SubDomainMPS},Set{SubDomainMPS}}}()
+    blocks_to_sets = Dict{Projector,Tuple{Set{SubDomainMPS},Set{SubDomainMPS}}}()
 
-    function add_entry!(blocks::OrderedSet{T}, proj::T) where {T}
-        current_block = proj
-        for existing in copy(blocks)
-            if hasoverlap(existing, proj)
-                delete!(blocks, existing)
-                fused_proj = existing | proj
-                current_block = add_entry!(blocks, fused_proj)
-            end
-        end
-        push!(blocks, proj)
-        return current_block
-    end
-
-    # Add a result's patch only if not overlapping with previously inserted ones
-    # Each block is obtained from contractable patches of the original factors
-    # Keep track of which SubDomainMPSs generate each resulting patch 
-    for b1 in values(M1), b2 in values(M2)
-        if hasoverlap(b1.projector, b2.projector)
-            block_key = add_entry!(blocks, _projector_after_contract(b1, b2)[1])
-            if haskey(blocks_to_sets, block_key)
-                set1, set2 = blocks_to_sets[block_key]
-                push!(set1, b1)
-                push!(set2, b2)
+    for m1 in values(M1), m2 in values(M2)
+        if hasoverlap(m1.projector, m2.projector)
+            block = add_entry!(blocks_to_sets, _projector_after_contract(m1, m2)[1])
+            if haskey(blocks_to_sets, block)
+                set1, set2 = blocks_to_sets[block]
+                push!(set1, m1)
+                push!(set2, m2)
             else
-                blocks_to_sets[block_key] = (Set([b1]), Set([b2]))
+                blocks_to_sets[block] = (Set([m1]), Set([m2]))
             end
         end
     end
 
-    for b1 in blocks, b2 in blocks
+    for b1 in keys(blocks_to_sets), b2 in keys(blocks_to_sets)
         if b1 != b2 && hasoverlap(b1, b2)
             error("After contraction, projectors must not overlap.")
         end
@@ -274,39 +261,22 @@ function parallel_contract!(
     overwrite=true,
     kwargs...,
 )::Union{PartitionedMPS}
-    blocks = OrderedSet{Projector}()
-    blocks_to_sets = OrderedDict{Projector,Tuple{Set{SubDomainMPS},Set{SubDomainMPS}}}()
+    blocks_to_sets = Dict{Projector,Tuple{Set{SubDomainMPS},Set{SubDomainMPS}}}()
 
-    function add_entry!(blocks::OrderedSet{T}, proj::T) where {T}
-        current_block = proj
-        for existing in copy(blocks)
-            if hasoverlap(existing, proj)
-                delete!(blocks, existing)
-                fused_proj = existing | proj
-                current_block = add_entry!(blocks, fused_proj)
-            end
-        end
-        push!(blocks, proj)
-        return current_block
-    end
-
-    # Add a result's patch only if not overlapping with previously inserted ones
-    # Each block is obtained from contractable patches of the original factors
-    # Keep track of which SubDomainMPSs generate each resulting patch 
-    for b1 in values(M1), b2 in values(M2)
-        if hasoverlap(b1.projector, b2.projector)
-            block_key = add_entry!(blocks, _projector_after_contract(b1, b2)[1])
-            if haskey(blocks_to_sets, block_key)
-                set1, set2 = blocks_to_sets[block_key]
-                push!(set1, b1)
-                push!(set2, b2)
+    for m1 in values(M1), m2 in values(M2)
+        if hasoverlap(m1.projector, m2.projector)
+            block = add_entry!(blocks_to_sets, _projector_after_contract(m1, m2)[1])
+            if haskey(blocks_to_sets, block)
+                set1, set2 = blocks_to_sets[block]
+                push!(set1, m1)
+                push!(set2, m2)
             else
-                blocks_to_sets[block_key] = (Set([b1]), Set([b2]))
+                blocks_to_sets[block] = (Set([m1]), Set([m2]))
             end
         end
     end
 
-    for b1 in blocks, b2 in blocks
+    for b1 in keys(blocks_to_sets), b2 in keys(blocks_to_sets)
         if b1 != b2 && hasoverlap(b1, b2)
             error("After contraction, projectors must not overlap.")
         end
@@ -333,6 +303,135 @@ function parallel_contract!(
     for res in results_parallel
         if res !== nothing
             append!(M, res)
+        end
+    end
+
+    return M
+end
+
+function add_entry!(
+    dict::Dict{Projector,Tuple{Set{SubDomainMPS},Set{SubDomainMPS}}}, proj::Projector
+)
+    # Iterate over a copy of keys to avoid modifying the dict while looping.
+    for existing in collect(keys(dict))
+        if hasoverlap(existing, proj)
+            fused_proj = existing | proj
+            # Save the current value for the overlapping key.
+            val = dict[existing]
+            # Remove the old key (this deletes its associated value).
+            delete!(dict, existing)
+            # Recursively update with the fused projector.
+            new_key = add_entry!(dict, fused_proj)
+            # If new_key is already present, merge the values; otherwise, insert the saved value.
+            if haskey(dict, new_key)
+                old_val = dict[new_key]
+                dict[new_key] = (union(old_val[1], val[1]), union(old_val[2], val[2]))
+            else
+                dict[new_key] = val
+            end
+            return new_key
+        end
+    end
+    # If no overlapping key is found, then ensure proj is in the dictionary.
+    if !haskey(dict, proj)
+        dict[proj] = (Set{SubDomainMPS}(), Set{SubDomainMPS}())
+    end
+    return proj
+end
+
+function distribute_contract!(
+    M::PartitionedMPS,
+    M1::PartitionedMPS,
+    M2::PartitionedMPS;
+    alg="zipup",
+    alg_sum="fit",
+    cutoff=default_cutoff(),
+    maxdim=default_maxdim(),
+    patchorder=Index[],
+    overwrite=true,
+    kwargs...,
+)::Union{PartitionedMPS}
+    blocks_to_sets = Dict{Projector,Tuple{Set{SubDomainMPS},Set{SubDomainMPS}}}()
+
+    for m1 in values(M1), m2 in values(M2)
+        if hasoverlap(m1.projector, m2.projector)
+            block = add_entry!(blocks_to_sets, _projector_after_contract(m1, m2)[1])
+            if haskey(blocks_to_sets, block)
+                set1, set2 = blocks_to_sets[block]
+                push!(set1, m1)
+                push!(set2, m2)
+            else
+                blocks_to_sets[block] = (Set([m1]), Set([m2]))
+            end
+        end
+    end
+
+    for b1 in keys(blocks_to_sets), b2 in keys(blocks_to_sets)
+        if b1 != b2 && hasoverlap(b1, b2)
+            error("After contraction, projectors must not overlap.")
+        end
+    end
+
+    tasks = Vector{Tuple{Projector,SubDomainMPS,SubDomainMPS}}()
+    for (proj, (set1, set2)) in blocks_to_sets
+        for subdmps1 in set1, subdmps2 in set2
+            if haskey(M.data, proj) && !overwrite
+                continue
+            end
+            push!(tasks, (proj, subdmps1, subdmps2))
+        end
+    end
+
+    function process_task(task_tuple; alg, cutoff, maxdim, kwargs...)
+        # Unpack the tuple
+        proj, subdmps1, subdmps2 = task_tuple
+        res = projcontract(subdmps1, subdmps2, proj; alg, cutoff, maxdim, kwargs...)
+        return (proj, res)
+    end
+
+    results = pmap(task -> process_task(task; alg, cutoff, maxdim, kwargs...), tasks)
+    valid_results = filter(x -> x[2] !== nothing, results)
+
+    block_group = Dict{Projector,Vector{SubDomainMPS}}()
+    for (b, subdmps) in valid_results
+        if haskey(block_group, b)
+            push!(block_group[b], subdmps)
+        else
+            block_group[b] = [subdmps]
+        end
+    end
+
+    block_group_array = collect(block_group)
+
+    function sum_blocks(group; patchorder, alg_sum, cutoff, maxdim, kwargs...)
+        b, subdmps_list = group
+        if length(subdmps_list) == 1
+            return [subdmps_list[1]]
+        else
+            res = if length(patchorder) > 0
+                _add_patching(subdmps_list; cutoff, maxdim, patchorder, kwargs...)
+            else
+                [_add(subdmps_list...; alg=alg_sum, cutoff, maxdim, kwargs...)]
+            end
+            return res
+        end
+    end
+
+    summed_patches = pmap(
+        group -> sum_blocks(
+            group;
+            patchorder=patchorder,
+            alg_sum=alg_sum,
+            cutoff=cutoff,
+            maxdim=maxdim,
+            kwargs...,
+        ),
+        block_group_array,
+    )
+
+    for res in summed_patches
+        if res !== nothing
+            append!(M, vcat(res))
         end
     end
 
