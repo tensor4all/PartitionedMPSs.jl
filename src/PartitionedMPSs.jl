@@ -11,6 +11,7 @@ import ITensors.TagSets: hastag, hastags
 import FastMPOContractions as FMPOC
 
 using Distributed
+using Base.Threads
 
 default_cutoff() = 1e-25
 default_maxdim() = typemax(Int)
