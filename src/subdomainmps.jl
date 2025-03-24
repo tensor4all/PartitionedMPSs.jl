@@ -114,10 +114,28 @@ function Base.show(io::IO, obj::SubDomainMPS)
 end
 
 function prime(Ψ::SubDomainMPS, args...; kwargs...)
+    if :inds ∈ keys(kwargs)
+        targetsites = kwargs[:inds]
+    else
+        targetsites = nothing
+    end
+
     return SubDomainMPS(
         ITensors.prime(MPS(Ψ), args...; kwargs...),
-        ITensors.prime.(siteinds(Ψ), args...; kwargs...),
-        Ψ.projector,
+        PartitionedMPSs.prime(Ψ.projector; targetsites=targetsites),
+    )
+end
+
+function noprime(Ψ::SubDomainMPS, args...; kwargs...)
+    if :inds ∈ keys(kwargs)
+        targetsites = kwargs[:inds]
+    else
+        targetsites = nothing
+    end
+
+    return SubDomainMPS(
+        ITensors.noprime(MPS(Ψ), args...; kwargs...),
+        PartitionedMPSs.noprime(Ψ.projector; targetsites=targetsites),
     )
 end
 
@@ -136,8 +154,7 @@ function _fitsum(
     kwargs...,
 ) where {T}
     if !(:nsweeps ∈ keys(kwargs))
-        kwargs = Dict{Symbol,Any}(kwargs)
-        kwargs[:nsweeps] = 1
+        kwargs = merge(Dict(kwargs), Dict(:nsweeps => 1))
     end
     Ψs = [MPS(collect(x)) for x in input_states]
     init_Ψ = MPS(collect(init))
@@ -158,7 +175,7 @@ function _add(ψ::AbstractMPS...; alg="fit", cutoff=1e-15, maxdim=typemax(Int), 
     elseif alg == "fit"
         function f(x, y)
             return ITensors.truncate(
-                +(ITensors.Algorithm("directsum"), x, y); cutoff, maxdim
+                +(ITensors.Algorithm("directsum"), x, y); cutoff, maxdim, kwargs...
             )
         end
         res_dm = reduce(f, ψ)
@@ -170,16 +187,16 @@ function _add(ψ::AbstractMPS...; alg="fit", cutoff=1e-15, maxdim=typemax(Int), 
 end
 
 function Base.:+(
-    Ψ::SubDomainMPS...; alg="directsum", cutoff=0.0, maxdim=typemax(Int), kwargs...
+    Ψ::SubDomainMPS...; alg="fit", cutoff=0.0, maxdim=typemax(Int), kwargs...
 )::SubDomainMPS
     return _add(Ψ...; alg=alg, cutoff=cutoff, maxdim=maxdim, kwargs...)
 end
 
 function _add(
-    Ψ::SubDomainMPS...; alg="directsum", cutoff=0.0, maxdim=typemax(Int), kwargs...
+    Ψ::SubDomainMPS...; alg="fit", cutoff=0.0, maxdim=typemax(Int), kwargs...
 )::SubDomainMPS
     return project(
-        _add([x.data for x in Ψ]...; alg=alg, cutoff=cutoff, maxdim=maxdim),
+        _add([x.data for x in Ψ]...; alg=alg, cutoff=cutoff, maxdim=maxdim, kwargs...),
         reduce(|, [x.projector for x in Ψ]),
     )
 end

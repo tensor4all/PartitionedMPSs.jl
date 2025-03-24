@@ -122,3 +122,44 @@ function Base.isdisjoint(projectors::AbstractVector{Projector})::Bool
     end
     return true
 end
+
+"""
+Remove prime level in projected indices.
+"""
+function noprime(
+    p::Projector; targetsites::Union{Nothing,AbstractVector{Index{T}}}=nothing
+)::Projector where {T}
+    if isnothing(targetsites)
+        targetsites = keys(p)
+    elseif targetsites ⊈ keys(p)
+        error("Target sites are not projected indices.")
+    end
+
+    if isempty(targetsites)
+        return p
+    end
+
+    new_dict = Dict(k ∈ targetsites ? ITensors.noprime(k) => v : k => v for (k, v) in p)
+    return Projector(new_dict)
+end
+
+"""
+Prime projected indices.
+"""
+function prime(
+    p::Projector; targetsites::Union{Nothing,AbstractVector{Index{T}}}=nothing
+)::Projector where {T}
+    if isnothing(targetsites)
+        targetsites = keys(p)
+    elseif targetsites ⊈ keys(p)
+        error("Target sites are not projected indices.")
+    end
+
+    if isempty(targetsites)
+        return p
+    end
+
+    new_dict = Dict(k ∈ targetsites ? ITensors.prime(k) => v : k => v for (k, v) in p)
+
+    return Projector(new_dict)
+end

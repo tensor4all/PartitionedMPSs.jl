@@ -101,6 +101,12 @@ function prime(Ψ::PartitionedMPS, args...; kwargs...)
     ])
 end
 
+function noprime(Ψ::PartitionedMPS, args...; kwargs...)
+    return PartitionedMPS([
+        noprime(subdmps, args...; kwargs...) for subdmps in values(Ψ.data)
+    ])
+end
+
 """
 Return the norm of the PartitionedMPS.
 """
