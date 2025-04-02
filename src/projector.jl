@@ -146,20 +146,29 @@ end
 """
 Prime projected indices.
 """
-function prime(
-    p::Projector; targetsites::Union{Nothing,AbstractVector{Index{T}}}=nothing
-)::Projector where {T}
-    if isnothing(targetsites)
-        targetsites = keys(p)
-    elseif targetsites ⊈ keys(p)
-        error("Target sites are not projected indices.")
+function prime(p::Projector, plinc=1; kwargs...)::Projector
+    targetsites = if :inds ∈ keys(kwargs)
+        kwargs[:inds]
+    else
+        keys(p)
+    end
+    plev = if :plev ∈ keys(kwargs)
+        kwargs[:plev]
+    end
+    isempty(targetsites) && return p
+
+    function new_ind(k)
+        if k ∉ targetsites
+            return k
+        end
+        if isnothing(plev) || ITensors.hasplev(k, plev)
+            return ITensors.prime(k, plinc)
+        else
+            return k
+        end
     end
 
-    if isempty(targetsites)
-        return p
-    end
-
-    new_dict = Dict(k ∈ targetsites ? ITensors.prime(k) => v : k => v for (k, v) in p)
+    new_dict = Dict(new_ind(k) => v for (k, v) in p)
 
     return Projector(new_dict)
 end

@@ -89,7 +89,7 @@ import PartitionedMPSs:
 
             index_dict = Dict{Index{Int},Vector{Int}}()
             for (i, el) in enumerate(ind)
-                baseind = noprime(el)
+                baseind = ITensors.noprime(el)
                 if haskey(index_dict, baseind)
                     push!(index_dict[baseind], i)
                 else
@@ -101,7 +101,7 @@ import PartitionedMPSs:
             isdiagonalelement = all(allequal(val[i] for i in is) for is in repeated_indices)
 
             if isdiagonalelement
-                nondiaginds = unique(noprime(i) => v for (i, v) in indval)
+                nondiaginds = unique(ITensors.noprime(i) => v for (i, v) in indval)
                 diag_ok = diag_ok && (psi_diag[indval...] == psi[nondiaginds...])
             else
                 offdiag_ok = offdiag_ok && iszero(psi_diag[indval...])

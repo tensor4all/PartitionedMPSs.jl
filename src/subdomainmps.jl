@@ -113,16 +113,10 @@ function Base.show(io::IO, obj::SubDomainMPS)
     return print(io, "SubDomainMPS projected on $(obj.projector.data)")
 end
 
-function prime(Ψ::SubDomainMPS, args...; kwargs...)
-    if :inds ∈ keys(kwargs)
-        targetsites = kwargs[:inds]
-    else
-        targetsites = nothing
-    end
-
+function prime(Ψ::SubDomainMPS, plinc=1; kwargs...)
     return SubDomainMPS(
-        ITensors.prime(MPS(Ψ), args...; kwargs...),
-        PartitionedMPSs.prime(Ψ.projector; targetsites=targetsites),
+        ITensors.prime(MPS(Ψ), plinc; kwargs...),
+        PartitionedMPSs.prime(Ψ.projector, plinc; kwargs...),
     )
 end
 
@@ -135,7 +129,7 @@ function noprime(Ψ::SubDomainMPS, args...; kwargs...)
 
     return SubDomainMPS(
         ITensors.noprime(MPS(Ψ), args...; kwargs...),
-        PartitionedMPSs.noprime(Ψ.projector; targetsites=targetsites),
+        PartitionedMPSs.noprime(Ψ.projector; targetsites),
     )
 end
 
