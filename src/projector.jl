@@ -30,8 +30,9 @@ end
 """
 Constructing a projector from a single pair of index and integer.
 """
-Projector(singleproj::Pair{Index{T},Int}) where {T} =
-    Projector(Dict{Index,Int}(singleproj.first => singleproj.second))
+function Projector(singleproj::Pair{Index{T},Int}) where {T}
+    return Projector(Dict{Index,Int}(singleproj.first => singleproj.second))
+end
 
 function Base.hash(p::Projector, h::UInt)
     tmp = hash(

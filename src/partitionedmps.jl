@@ -23,11 +23,13 @@ PartitionedMPS(data::SubDomainMPS) = PartitionedMPS([data])
 
 PartitionedMPS() = PartitionedMPS(SubDomainMPS[])
 
-projectors(obj::PartitionedMPS) = keys(obj)
+projectors(obj::PartitionedMPS) = collect(keys(obj))
 
 function Base.append!(a::PartitionedMPS, b::PartitionedMPS)
-    if !isdisjoint(collect(union(projectors(a), projectors(b))))
-        error("Projectors are overlapping")
+    if !isdisjoint(vcat(projectors(a), projectors(b)))
+        error(
+            "Projectors are overlapping or identical. Resum of patches could be necessary."
+        )
     end
     for (k, v) in b.data
         a.data[k] = v
