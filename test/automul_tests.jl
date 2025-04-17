@@ -13,7 +13,8 @@ import PartitionedMPSs:
     project,
     elemmul,
     automul,
-    default_cutoff
+    default_cutoff,
+    rearrange_siteinds
 
 import FastMPOContractions as FMPOC
 
@@ -60,7 +61,7 @@ import FastMPOContractions as FMPOC
 
         test_points = [[rand(1:d) for __ in 1:N] for _ in 1:1000]
 
-        isapprox(
+        @test isapprox(
             [_evaluate(mps_element_prod, sites, p) for p in test_points],
             [_evaluate(Ψ, sites, p)^2 for p in test_points];
             atol=sqrt(default_cutoff()), # default_cutoff() = 1e-25 is the contraction cutoff
@@ -77,6 +78,7 @@ import FastMPOContractions as FMPOC
         sites_l = [Index(d, "Qubit, l=$l") for l in 1:N]
         sites_mn = collect(Iterators.flatten(collect.(zip(sites_m, sites_n))))
         sites_nl = collect(Iterators.flatten(collect.(zip(sites_n, sites_l))))
+        final_sites = collect(Iterators.flatten(collect.(zip(sites_m, sites_l))))
 
         Ψ_l = ITensorMPS.convert(MPS, _random_mpo([[x] for x in sites_mn]; linkdims=L))
         Ψ_r = ITensorMPS.convert(MPS, _random_mpo([[x] for x in sites_nl]; linkdims=L))
@@ -102,11 +104,25 @@ import FastMPOContractions as FMPOC
         )
         mps_matmul = MPS(matmul)
 
-        naive_matmul = FMPOC.contract_mpo_mpo(
-            MPO(collect(Ψ_l)), MPO(collect(Ψ_r)); alg="naive"
+        sites_mn_vec = collect(collect.(zip(sites_m, sites_n)))
+        sites_nl_vec = collect(collect.(zip(sites_n, sites_l)))
+
+        mpo_l = MPO(collect(rearrange_siteinds(Ψ_l, sites_mn_vec)))
+        mpo_r = MPO(collect(rearrange_siteinds(Ψ_r, sites_nl_vec)))
+
+        naive_matmul = FMPOC.contract_mpo_mpo(mpo_l, mpo_r; alg="naive")
+        mps_naive_matmul = rearrange_siteinds(
+            ITensorMPS.convert(MPS, naive_matmul), [[x] for x in final_sites]
         )
-        mps_naive_matmul = ITensorMPS.convert(MPS, naive_matmul)
 
         @test mps_matmul ≈ mps_naive_matmul
+
+        test_points = [[rand(1:d) for __ in 1:(2 * N)] for _ in 1:1000]
+
+        @test isapprox(
+            [_evaluate(mps_matmul, final_sites, p) for p in test_points],
+            [_evaluate(mps_naive_matmul, final_sites, p) for p in test_points];
+            atol=sqrt(default_cutoff()), # default_cutoff() = 1e-25 is the contraction cutoff
+        )
     end
 end

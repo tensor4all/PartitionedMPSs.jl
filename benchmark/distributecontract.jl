@@ -34,7 +34,7 @@ using ITensors, ITensorMPS
 random_mpo_file = normpath(joinpath(dirname(pathof(PartitionedMPSs)), "../test/_util.jl"))
 
 Random.seed!(1234)
-R = 5
+R = 10
 d = 2
 L = 5
 
@@ -42,21 +42,24 @@ sites_x = [Index(d, "Qubit,x=$x") for x in 1:R]
 sites_y = [Index(d, "Qubit,y=$y") for y in 1:R]
 sites_s = [Index(d, "Qubit,s=$s") for s in 1:R]
 
-sites_xs = collect(Iterators.flatten(zip(sites_x, sites_s)))
-sites_sy = collect(Iterators.flatten(zip(sites_s, sites_y)))
+sites_xs = collect(collect.(zip(sites_x, sites_s)))
+sites_sy = collect(collect.(zip(sites_s, sites_y)))
 
-Ψ_l = ITensorMPS.convert(MPS, _random_mpo([[x] for x in sites_xs]; linkdims=L))
-Ψ_r = ITensorMPS.convert(MPS, _random_mpo([[x] for x in sites_sy]; linkdims=L))
+sites_xs_flat = collect(Iterators.flatten(sites_xs))
+sites_sy_flat = collect(Iterators.flatten(sites_sy))
+
+Ψ_l = ITensorMPS.convert(MPS, _random_mpo(sites_xs; linkdims=L))
+Ψ_r = ITensorMPS.convert(MPS, _random_mpo(sites_sy; linkdims=L))
 
 proj_lev_l = 4
 proj_l = vec([
-    Dict(zip(sites_xs, combo)) for
+    Dict(zip(sites_xs_flat, combo)) for
     combo in Iterators.product((1:d for _ in 1:proj_lev_l)...)
 ])
 
 proj_lev_r = 6
 proj_r = vec([
-    Dict(zip(sites_sy, combo)) for
+    Dict(zip(sites_sy_flat, combo)) for
     combo in Iterators.product((1:d for _ in 1:proj_lev_r)...)
 ])
 
