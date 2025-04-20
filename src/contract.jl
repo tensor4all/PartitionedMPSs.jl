@@ -195,7 +195,7 @@ function _contraction_tasks(
             continue
         end
         for (subdmps1, subdmps2) in submps_pairs
-            push!(tasks, (proj, subdmps1, subdmps2))
+            push!(tasks, (proj, project(subdmps1, proj), project(subdmps2, proj)))
         end
     end
 

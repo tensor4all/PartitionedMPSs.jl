@@ -56,13 +56,12 @@ function project(tensor::ITensor, projector::Projector)
 end
 
 function project(projΨ::SubDomainMPS, projector::Projector)::Union{Nothing,SubDomainMPS}
-    newprj = projector & projΨ.projector
-    if newprj === nothing
+    if !hasoverlap(projector, projΨ.projector)
         return nothing
     end
 
     return SubDomainMPS(
-        MPS([project(projΨ.data[n], newprj) for n in 1:length(projΨ.data)]), newprj
+        MPS([project(projΨ.data[n], projector) for n in 1:length(projΨ.data)]), projector
     )
 end
 
