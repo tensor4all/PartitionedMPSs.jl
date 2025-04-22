@@ -56,13 +56,12 @@ function project(tensor::ITensor, projector::Projector)
 end
 
 function project(projΨ::SubDomainMPS, projector::Projector)::Union{Nothing,SubDomainMPS}
-    newprj = projector & projΨ.projector
-    if newprj === nothing
+    if !hasoverlap(projector, projΨ.projector)
         return nothing
     end
 
     return SubDomainMPS(
-        MPS([project(projΨ.data[n], newprj) for n in 1:length(projΨ.data)]), newprj
+        MPS([project(projΨ.data[n], projector) for n in 1:length(projΨ.data)]), projector
     )
 end
 
@@ -113,11 +112,23 @@ function Base.show(io::IO, obj::SubDomainMPS)
     return print(io, "SubDomainMPS projected on $(obj.projector.data)")
 end
 
-function prime(Ψ::SubDomainMPS, args...; kwargs...)
+function prime(Ψ::SubDomainMPS, plinc=1; kwargs...)
     return SubDomainMPS(
-        ITensors.prime(MPS(Ψ), args...; kwargs...),
-        ITensors.prime.(siteinds(Ψ), args...; kwargs...),
-        Ψ.projector,
+        ITensors.prime(MPS(Ψ), plinc; kwargs...),
+        PartitionedMPSs.prime(Ψ.projector, plinc; kwargs...),
+    )
+end
+
+function noprime(Ψ::SubDomainMPS, args...; kwargs...)
+    if :inds ∈ keys(kwargs)
+        targetsites = kwargs[:inds]
+    else
+        targetsites = nothing
+    end
+
+    return SubDomainMPS(
+        ITensors.noprime(MPS(Ψ), args...; kwargs...),
+        PartitionedMPSs.noprime(Ψ.projector; targetsites),
     )
 end
 
@@ -136,8 +147,7 @@ function _fitsum(
     kwargs...,
 ) where {T}
     if !(:nsweeps ∈ keys(kwargs))
-        kwargs = Dict{Symbol,Any}(kwargs)
-        kwargs[:nsweeps] = 1
+        kwargs = merge(Dict(kwargs), Dict(:nsweeps => 1))
     end
     Ψs = [MPS(collect(x)) for x in input_states]
     init_Ψ = MPS(collect(init))
@@ -150,13 +160,15 @@ function _add(ψ::AbstractMPS...; alg="fit", cutoff=1e-15, maxdim=typemax(Int), 
         return +(ITensors.Algorithm(alg), ψ...)
     elseif alg == "densitymatrix"
         if cutoff < 1e-15
-            @warn "Cutoff is very small, it may suffer from numerical round errors. The densitymatrix algorithm squares the singular values of the reduce density matrix. Please consider increasing it or using fit algorithm."
+            @warn "Cutoff is very small, it may suffer from numerical round errors. 
+                    The densitymatrix algorithm squares the singular values of the reduce density matrix. 
+                    Please consider increasing it or using fit algorithm."
         end
-        return +(ITensors.Algorithm"densitymatrix"(), ψ...; cutoff, maxdim, kwargs...)
+        return +(ITensors.Algorithm("densitymatrix"), ψ...; cutoff, maxdim, kwargs...)
     elseif alg == "fit"
         function f(x, y)
             return ITensors.truncate(
-                +(ITensors.Algorithm("directsum"), x, y); cutoff, maxdim
+                +(ITensors.Algorithm("directsum"), x, y); cutoff, maxdim, kwargs...
             )
         end
         res_dm = reduce(f, ψ)
@@ -168,16 +180,16 @@ function _add(ψ::AbstractMPS...; alg="fit", cutoff=1e-15, maxdim=typemax(Int), 
 end
 
 function Base.:+(
-    Ψ::SubDomainMPS...; alg="directsum", cutoff=0.0, maxdim=typemax(Int), kwargs...
+    Ψ::SubDomainMPS...; alg="fit", cutoff=0.0, maxdim=typemax(Int), kwargs...
 )::SubDomainMPS
     return _add(Ψ...; alg=alg, cutoff=cutoff, maxdim=maxdim, kwargs...)
 end
 
 function _add(
-    Ψ::SubDomainMPS...; alg="directsum", cutoff=0.0, maxdim=typemax(Int), kwargs...
+    Ψ::SubDomainMPS...; alg="fit", cutoff=0.0, maxdim=typemax(Int), kwargs...
 )::SubDomainMPS
     return project(
-        _add([x.data for x in Ψ]...; alg=alg, cutoff=cutoff, maxdim=maxdim),
+        _add([x.data for x in Ψ]...; alg=alg, cutoff=cutoff, maxdim=maxdim, kwargs...),
         reduce(|, [x.projector for x in Ψ]),
     )
 end
@@ -211,39 +223,49 @@ function LinearAlgebra.norm(M::SubDomainMPS)
 end
 
 function _makesitediagonal(
-    SubDomainMPS::SubDomainMPS, sites::AbstractVector{Index{IndsT}}; baseplev=0
+    obj::SubDomainMPS, sites::AbstractVector{Index{IndsT}}; baseplev=0
 ) where {IndsT}
-    M_ = deepcopy(MPO(collect(MPS(SubDomainMPS))))
+    M_ = deepcopy(MPO(collect(MPS(obj))))
     for site in sites
         target_site::Int = only(findsites(M_, site))
         M_[target_site] = _asdiagonal(M_[target_site], site; baseplev=baseplev)
     end
-    return project(M_, SubDomainMPS.projector)
+
+    newproj = deepcopy(obj.projector)
+    for s in sites
+        if isprojectedat(obj.projector, s)
+            newproj.data[ITensors.prime(s, baseplev + 1)] = newproj.data[s]
+            if baseplev != 0
+                newproj.data[ITensors.prime(s, baseplev)] = newproj.data[s]
+                delete!(newproj.data, s)
+            end
+        end
+    end
+
+    return project(M_, newproj)
 end
 
-function _makesitediagonal(SubDomainMPS::SubDomainMPS, site::Index; baseplev=0)
-    return _makesitediagonal(SubDomainMPS, [site]; baseplev=baseplev)
+function makesitediagonal(obj::SubDomainMPS, site::Index{IndsT}; baseplev=0) where {IndsT}
+    return _makesitediagonal(obj, [site]; baseplev=baseplev)
 end
 
-function makesitediagonal(SubDomainMPS::SubDomainMPS, site::Index)
-    return _makesitediagonal(SubDomainMPS, site; baseplev=0)
+function makesitediagonal(
+    obj::SubDomainMPS, sites::AbstractVector{Index{IndsT}}; baseplev=0
+) where {IndsT}
+    return _makesitediagonal(obj, sites; baseplev=baseplev)
 end
 
-function makesitediagonal(SubDomainMPS::SubDomainMPS, sites::AbstractVector{Index})
-    return _makesitediagonal(SubDomainMPS, sites; baseplev=0)
-end
-
-function makesitediagonal(SubDomainMPS::SubDomainMPS, tag::String)
-    mps_diagonal = makesitediagonal(MPS(SubDomainMPS), tag)
+function makesitediagonal(obj::SubDomainMPS, tag::String)
+    mps_diagonal = makesitediagonal(MPS(obj), tag)
     SubDomainMPS_diagonal = SubDomainMPS(mps_diagonal)
 
     target_sites = findallsiteinds_by_tag(
-        unique(ITensors.noprime.(Iterators.flatten(siteinds(SubDomainMPS)))); tag=tag
+        unique(ITensors.noprime.(Iterators.flatten(siteinds(obj)))); tag=tag
     )
 
-    newproj = deepcopy(SubDomainMPS.projector)
+    newproj = deepcopy(obj.projector)
     for s in target_sites
-        if isprojectedat(SubDomainMPS.projector, s)
+        if isprojectedat(obj.projector, s)
             newproj[ITensors.prime(s)] = newproj[s]
         end
     end
@@ -251,19 +273,10 @@ function makesitediagonal(SubDomainMPS::SubDomainMPS, tag::String)
     return project(SubDomainMPS_diagonal, newproj)
 end
 
-# FIXME: may be type unstable
-function _find_site_allplevs(tensor::ITensor, site::Index; maxplev=10)
-    ITensors.plev(site) == 0 || error("Site index must be unprimed.")
-    return [
-        ITensors.prime(site, plev) for
-        plev in 0:maxplev if ITensors.prime(site, plev) ∈ ITensors.inds(tensor)
-    ]
-end
-
 function extractdiagonal(
-    SubDomainMPS::SubDomainMPS, sites::AbstractVector{Index{IndsT}}
+    obj::SubDomainMPS, sites::AbstractVector{Index{IndsT}}
 ) where {IndsT}
-    tensors = collect(SubDomainMPS.data)
+    tensors = collect(obj.data)
     for i in eachindex(tensors)
         for site in intersect(sites, ITensors.inds(tensors[i]))
             sitewithallplevs = _find_site_allplevs(tensors[i], site)
@@ -275,18 +288,20 @@ function extractdiagonal(
         end
     end
 
-    projector = deepcopy(SubDomainMPS.projector)
-    for site in sites
-        if site' in keys(projector.data)
-            delete!(projector.data, site')
-        end
+    newD = Dict{Index,Int}()
+    # Duplicates of keys are discarded
+    for (k, v) in obj.projector.data
+        newk = ITensors.noprime(k)
+        newD[newk] = v
     end
-    return SubDomainMPS(MPS(tensors), projector)
+    return SubDomainMPS(MPS(tensors), Projector(newD))
 end
 
-function extractdiagonal(SubDomainMPS::SubDomainMPS, tag::String)::SubDomainMPS
-    targetsites = findallsiteinds_by_tag(
-        unique(ITensors.noprime.(PartitionedMPSs._allsites(SubDomainMPS))); tag=tag
-    )
-    return extractdiagonal(SubDomainMPS, targetsites)
+function extractdiagonal(obj::SubDomainMPS, tag::String)::SubDomainMPS
+    targetsites = findallsiteinds_by_tag(unique(ITensors.noprime.(_allsites(obj))); tag=tag)
+    return extractdiagonal(obj, targetsites)
+end
+
+function extractdiagonal(subdmps::SubDomainMPS, site::Index{IndsT}) where {IndsT}
+    return extractdiagonal(subdmps, [site])
 end

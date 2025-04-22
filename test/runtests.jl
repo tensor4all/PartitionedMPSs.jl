@@ -1,4 +1,4 @@
-import PartitionedMPSs as PM
+using PartitionedMPSs: PartitionedMPSs
 using Random
 using ITensors
 using ITensorMPS
@@ -11,6 +11,7 @@ include("subdomainmps_tests.jl")
 include("partitionedmps_tests.jl")
 include("contract_tests.jl")
 include("patching_tests.jl")
-#include("util_tests.jl")
-
-#include("automul_tests.jl")
+include("util_tests.jl")
+include("automul_tests.jl")
+include("bak/conversion_tests.jl")
+include("adaptivemul_tests.jl")

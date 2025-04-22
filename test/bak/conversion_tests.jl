@@ -5,10 +5,10 @@ using ITensors
 import TensorCrossInterpolation as TCI
 import TCIAlgorithms as TCIA
 using TCIITensorConversion
-import PartitionedMPSs: SubDomainMPS, PartitionedMPS
-#import FastMPOContractions as FMPOC
-#import Quantics: asMPO
-#using Quantics: Quantics
+import PartitionedMPSs: PartitionedMPSs
+
+conversion_file = normpath(joinpath(dirname(pathof(PartitionedMPSs)), "bak/conversion.jl"))
+include(conversion_file)
 
 @testset "conversion.jl" begin
     @testset "TCIA.ProjTensorTrain => SubDomainMPS" begin

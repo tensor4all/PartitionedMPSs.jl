@@ -4,7 +4,8 @@ using ITensors
 using ITensorMPS
 using Random
 
-import PartitionedMPSs: PartitionedMPSs, Projector, project, SubDomainMPS, PartitionedMPS
+import PartitionedMPSs:
+    PartitionedMPSs, Projector, project, SubDomainMPS, PartitionedMPS, prime, noprime
 
 @testset "partitionedmps.jl" begin
     @testset "two blocks" begin
@@ -30,8 +31,8 @@ import PartitionedMPSs: PartitionedMPSs, Projector, project, SubDomainMPS, Parti
         @test length([(k, v) for (k, v) in PartitionedMPS(prjΨ1)]) == 1
 
         Ψreconst = PartitionedMPS(prjΨ1) + PartitionedMPS(prjΨ2)
-        @test Ψreconst[1] ≈ prjΨ1
-        @test Ψreconst[2] ≈ prjΨ2
+        @test Ψreconst[Projector(sitesx[1] => 1)] ≈ prjΨ1
+        @test Ψreconst[Projector(sitesx[1] => 2)] ≈ prjΨ2
         @test MPS(Ψreconst) ≈ Ψ
         @test ITensors.norm(Ψreconst) ≈ ITensors.norm(MPS(Ψreconst))
 
@@ -99,5 +100,38 @@ import PartitionedMPSs: PartitionedMPSs, Projector, project, SubDomainMPS, Parti
                 ITensorMPS.norm(MPS(partmps))^2
             @test diff < cutoff_global
         end
+    end
+
+    @testset "prime" begin
+        Random.seed!(1234)
+        N = 3
+        sitesx = [Index(2, "x=$n") for n in 1:N]
+        sitesy = [Index(2, "y=$n") for n in 1:N]
+
+        sites = collect(collect.(zip(sitesx, sitesy)))
+
+        Ψ = MPS(collect(_random_mpo(sites)))
+
+        prjΨ = SubDomainMPS(Ψ)
+
+        prjΨ1 = project(prjΨ, Dict(sitesx[1] => 1))
+        prjΨ2 = project(prjΨ, Dict(sitesx[1] => 2))
+
+        Ψreconst = PartitionedMPS(prjΨ1) + PartitionedMPS(prjΨ2)
+
+        Ψreconst_x3prime = prime(Ψreconst, 3; inds=sitesx)
+
+        @test Set(Iterators.flatten(siteinds(Ψreconst_x3prime))) ==
+            Set(union(ITensors.prime.(sitesx, 3), sitesy))
+
+        @test Set(keys(Ψreconst_x3prime)) == Set([
+            Projector(ITensors.prime(sitesx[1], 3) => 1),
+            Projector(ITensors.prime(sitesx[1], 3) => 2),
+        ])
+
+        Ψreconst_x3prime_yprime = prime(Ψreconst_x3prime; plev=0)
+
+        @test Set(Iterators.flatten(siteinds(Ψreconst_x3prime_yprime))) ==
+            Set(union(ITensors.prime.(sitesx, 3), ITensors.prime.(sitesy, 1)))
     end
 end

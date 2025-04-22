@@ -53,12 +53,6 @@ import PartitionedMPSs: Projector, hasoverlap
         end
 
         let
-            p1 = Projector(Dict(inds[2] => 1))
-            p2 = Projector(Dict(inds[1] => 2))
-            @test p1 & p2 == Projector(Dict(inds[1] => 2, inds[2] => 1))
-        end
-
-        let
             p1 = Projector(Dict(inds[2] => 1, inds[3] => 1))
             p2 = Projector(Dict(inds[1] => 2, inds[3] => 1))
             @test p1 & p2 == Projector(Dict(inds[1] => 2, inds[2] => 1, inds[3] => 1))

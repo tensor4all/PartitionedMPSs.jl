@@ -15,14 +15,15 @@ using Random
 
         sites = collect(collect.(zip(sitesx, sitesy)))
 
-        prjmps = SubDomainMPS(_random_mpo(sites; linkdims=20))
+        subdmps = SubDomainMPS(_random_mpo(sites; linkdims=20))
 
         sites_ = collect(Iterators.flatten(sites))
-        bmps = PartitionedMPS(adaptive_patching(prjmps, sites_; maxdim=10, cutoff=1e-25))
+        partmps = PartitionedMPS(
+            adaptive_patching(subdmps, sites_; maxdim=10, cutoff=1e-25)
+        )
 
-        @test length(values((bmps))) > 1
+        @test length(values((partmps))) > 1
 
-        @test MPS(bmps) ≈ MPS(prjmps) rtol = 1e-12
-        #MPS(bmps) ≈ MPS(prjmps)
+        @test MPS(partmps) ≈ MPS(subdmps) rtol = 1e-12
     end
 end
