@@ -81,29 +81,18 @@ If the bond dimension of a SubDomainMPS exceeds `maxdim`, perform patching.
 function adaptive_patching(
     subdmps::SubDomainMPS, patchorder; cutoff=0.0, maxdim=typemax(Int)
 )::Vector{SubDomainMPS}
-    if maxbonddim(subdmps) <= maxdim
+    prjidx = _next_projindex(subdmps.projector, patchorder)
+    if maxbonddim(subdmps) <= maxdim || prjidx === nothing
         return [subdmps]
     end
 
-    # If the bond dimension exceeds maxdim, perform patching
-    refined_subdmpss = SubDomainMPS[]
-    nextprjidx = _next_projindex(subdmps.projector, patchorder)
-    if nextprjidx === nothing
-        return [subdmps]
+    # The bond dimension exceeds maxdim and there's an index to be projected, so perform patching
+    prjvals = 1:ITensors.dim(prjidx)
+    return mapreduce(vcat, prjvals) do prjval
+        prj_ = subdmps.projector & Projector(prjidx => prjval)
+        subdmps_ = truncate(project(subdmps, prj_); cutoff)
+        adaptive_patching(subdmps_, patchorder; cutoff, maxdim)
     end
-
-    for prjval in 1:ITensors.dim(nextprjidx)
-        prj_ = subdmps.projector & Projector(nextprjidx => prjval)
-        subdmps_ = truncate(project(subdmps, prj_); cutoff, maxdim)
-        if maxbonddim(subdmps_) <= maxdim
-            push!(refined_subdmpss, subdmps_)
-        else
-            append!(
-                refined_subdmpss, adaptive_patching(subdmps_, patchorder; cutoff, maxdim)
-            )
-        end
-    end
-    return refined_subdmpss
 end
 
 """
@@ -113,14 +102,14 @@ Do patching recursively to reduce the bond dimension.
 If the bond dimension of a SubDomainMPS exceeds `maxdim`, perform patching.
 """
 function adaptive_patching(
-    prjmpss::PartitionedMPS, patchorder; cutoff=0.0, maxdim=typemax(Int)
+    prjmps::PartitionedMPS, patchorder; cutoff=0.0, maxdim=typemax(Int)
 )::PartitionedMPS
     return PartitionedMPS(
         collect(
-            Iterators.flatten((
-                apdaptive_patching(prjmps; cutoff, maxdim, patchorder) for
-                prjmps in values(prjmpss)
-            )),
+            Iterators.flatten(
+                adaptive_patching(subdmps, patchorder; cutoff, maxdim) for
+                subdmps in values(prjmps)
+            ),
         ),
     )
 end
